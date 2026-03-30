@@ -304,6 +304,13 @@
   var pendingImg = null;
   var pendingReply = null;
 
+  function setReplyFromBtn(btn) {
+    var msgId = btn.getAttribute("data-msgid");
+    var name  = btn.getAttribute("data-name");
+    var text  = btn.getAttribute("data-text");
+    setReply(msgId, name, text);
+  }
+
   function setReply(msgId, name, text) {
     document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
     pendingReply = { msgId:msgId, name:name, text:text };
@@ -511,7 +518,7 @@
           + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
               return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
             }).join('')
-          + '<button class="reply-btn" onclick="event.stopPropagation();setReply(\''+msg.id+'\','+JSON.stringify(msg.name)+','+JSON.stringify(msg.image?'[imagem]':(msg.text||''))+')">↩</button>'
+          + '<button class="reply-btn" data-msgid="'+msg.id+'" data-name="'+escHtml(msg.name)+'" data-text="'+escHtml(msg.image?'[imagem]':(msg.text||''))+'" onclick="event.stopPropagation();setReplyFromBtn(this)">↩</button>'
           + '</div>';
         var reactionsHtml = '<div class="reactions" id="reactions-'+msg.id+'"></div>';
 
