@@ -345,7 +345,7 @@
         var reactBtnHtml = '';
         var emojiPickerHtml = '<div class="emoji-picker" id="ep-'+msg.id+'">'
           + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
-              return '<button class="ep-btn" onclick="addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
+              return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
             }).join('')
           + '</div>';
         var reactionsHtml = '<div class="reactions" id="reactions-'+msg.id+'"></div>';
@@ -413,17 +413,17 @@
     el.innerHTML = Object.keys(counts).map(function(em) {
       var uids = counts[em];
       var mine = uids.indexOf(myId) > -1;
-      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="addReaction(\''+msgId+'\',\''+em+'\')">'+em+'</span>';
+      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="event.stopPropagation();addReaction(\''+msgId+'\',\''+em+'\')">'+em+'</span>';
     }).join("");
   }
 
   function openEmojiPicker(e, msgId) {
     e.stopPropagation();
-    document.querySelectorAll(".emoji-picker.open").forEach(function(el) {
-      if (el.id !== "ep-"+msgId) el.classList.remove("open");
-    });
     var ep = document.getElementById("ep-"+msgId);
-    if (ep) ep.classList.toggle("open");
+    if (!ep) return;
+    var isOpen = ep.classList.contains("open");
+    document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
+    if (!isOpen) ep.classList.add("open");
   }
 
   function addReaction(msgId, emoji) {
