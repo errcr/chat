@@ -1,14 +1,6 @@
-[[redirects]]
-  from = "/"
-  to = "/index.html"
-  status = 200
-
 [[headers]]
-  for = "/index.html"
+  for = "/*"
   [headers.values]
-    Content-Type = "text/html; charset=UTF-8"
-
-[[headers]]
-  for = "/admin.html"
-  [headers.values]
-    Content-Type = "text/html; charset=UTF-8"
+    # Substitua abaixo pela sua política desejada,
+    # ou use 'default-src * 'unsafe-inline' 'unsafe-eval';' para desativar as restrições
+    Content-Security-Policy = "default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';"
