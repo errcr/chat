@@ -1,19 +1,11 @@
-const CACHE = "chatspace-v2";
-
-self.addEventListener("install", e => {
-  self.skipWaiting();
-});
-
+// Desregistra o service worker e limpa todos os caches
+self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.matchAll())
+      .then(clients => clients.forEach(c => c.navigate(c.url)))
   );
   self.clients.claim();
-});
-
-// Deixa tudo passar pela rede normalmente
-self.addEventListener("fetch", e => {
-  e.respondWith(fetch(e.request));
 });
