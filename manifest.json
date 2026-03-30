@@ -1,10 +1,10 @@
 {
-  "name": "ChatSpace",
-  "short_name": "ChatSpace",
+  "name": "Secret Chat",
+  "short_name": "Secret Chat",
   "description": "Chat em tempo real",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0e17",
+  "background_color": "#f4f3ff",
   "theme_color": "#7c6af7",
   "orientation": "portrait",
   "icons": [
