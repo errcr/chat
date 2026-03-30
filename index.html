@@ -550,6 +550,27 @@
   }
   var lastNotifTs = 0;
 
+  function requestNotifPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+
+  function sendPushNotif(name, text) {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    if (!document.hidden) return; // só manda se o app estiver minimizado
+    try {
+      new Notification("💬 " + name, {
+        body: text,
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        tag: "secret-chat-msg",
+        renotify: true
+      });
+    } catch(e) {}
+  }
+
   var isRegisterMode = false;
 
   function toggleMode() {
@@ -703,6 +724,7 @@
     }
     document.getElementById("my-chip-name").textContent = myName;
     setupPresence(); listenMessages(); listenTyping();
+    requestNotifPermission();
   }
 
   function leaveRoom() {
@@ -754,6 +776,7 @@
         // notification
         if (msg.ts > lastNotifTs && msg.userId !== myId && msg.ts > Date.now() - 5000) {
           playNotif();
+          sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
           lastNotifTs = msg.ts;
         }
         var isOwn      = msg.userId===myId;
@@ -789,14 +812,12 @@
           : escHtml(msg.text||""));
 
         if (isOwn) {
-          row.innerHTML =
-            avHtml +
+          row.innerHTML = emojiPickerHtml + reactBtnHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
             '<div class="bubble mine" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
-            emojiPickerHtml;
+            avHtml;
         } else {
-          row.innerHTML =
-            avHtml +
+          row.innerHTML = avHtml +
             emojiPickerHtml + reactBtnHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
             '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
