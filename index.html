@@ -138,9 +138,12 @@
     .reaction-pill .rc { font-size:11px; font-weight:700; color:var(--muted); font-family:var(--mono); }
 
     /* ── Emoji Avatar ── */
-    .emoji-avatar-picker { display:none; flex-wrap:wrap; gap:6px; justify-content:center; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:12px; width:260px; box-shadow:0 8px 24px #0003; }
+    .emoji-avatar-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .emoji-avatar-display { width:64px; height:64px; border-radius:50%; background:var(--surface2); border:2px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:32px; cursor:pointer; transition:border-color .2s; }
+    .emoji-avatar-display:hover { border-color:var(--accent); }
+    .emoji-avatar-hint { font-size:11px; color:var(--muted); font-family:var(--mono); }
+    .emoji-avatar-picker { display:none; flex-wrap:wrap; gap:6px; justify-content:center; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:12px; max-width:280px; }
     .emoji-avatar-picker.open { display:flex; }
-    #emoji-av-picker { position:fixed; top:60px; left:10px; z-index:200; }
     .eap-btn { font-size:24px; cursor:pointer; padding:4px; border-radius:8px; border:none; background:none; transition:transform .1s; }
     .eap-btn:hover { transform:scale(1.2); background:var(--surface2); }
     .copy-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:8px 18px; font-size:13px; font-family:var(--mono); color:var(--text); box-shadow:0 4px 20px #0004; z-index:50; opacity:0; transition:opacity .2s; pointer-events:none; }
@@ -239,8 +242,9 @@
 <!-- CHAT APP -->
 <div id="chat-app">
   <div class="chat-header">
-    <div style="flex-shrink:0">
+    <div style="position:relative;flex-shrink:0">
       <div id="header-av" onclick="toggleEmojiAvPicker()" title="Mudar avatar" style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#a78bfa);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:opacity .2s">💬</div>
+      <div class="emoji-avatar-picker" id="emoji-av-picker" style="position:absolute;top:44px;left:0;z-index:50;max-width:240px"></div>
     </div>
     <div>
       <h1>Secret Chat</h1>
@@ -281,8 +285,6 @@
     </div>
   </div>
 </div>
-
-<div class="emoji-avatar-picker" id="emoji-av-picker"></div>
 
 <div class="members-panel" id="members-panel">
   <div class="members-header">
@@ -467,7 +469,7 @@
     return '<div class="avatar" style="width:'+s+'px;height:'+s+'px;background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+initials(name)+'</div>';
   }
 
-  var isDark = localStorage.getItem("theme") === "dark";
+  var isDark = localStorage.getItem("theme") !== "light";
   function applyTheme() {
     document.body.classList.toggle("light", !isDark);
     var btn = document.getElementById("theme-btn");
@@ -787,12 +789,14 @@
           : escHtml(msg.text||""));
 
         if (isOwn) {
-          row.innerHTML = emojiPickerHtml + reactBtnHtml +
+          row.innerHTML =
+            avHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
             '<div class="bubble mine" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
-            avHtml;
+            emojiPickerHtml;
         } else {
-          row.innerHTML = avHtml +
+          row.innerHTML =
+            avHtml +
             emojiPickerHtml + reactBtnHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
             '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
