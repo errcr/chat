@@ -86,11 +86,7 @@
 
     /* ── Reações ── */
     .msg-row { position:relative; }
-    .react-btn { display:none; position:absolute; bottom:18px; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 8px; font-size:13px; cursor:pointer; box-shadow:0 2px 8px #0003; z-index:5; transition:transform .15s; }
-    .react-btn:hover { transform:scale(1.1); }
-    .msg-row:hover .react-btn { display:block; }
-    .msg-row.own .react-btn { right:42px; }
-    .msg-row:not(.own) .react-btn { left:42px; }
+    .bubble { cursor:pointer; }
     .emoji-picker { display:none; position:absolute; bottom:44px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:6px 10px; gap:4px; z-index:10; box-shadow:0 4px 20px #0005; flex-direction:row; }
     .emoji-picker.open { display:flex; }
     .msg-row.own .emoji-picker { right:42px; }
@@ -346,7 +342,7 @@
         row.className = "msg-row"+(isOwn?" own":"")+(showHeader?" group-tail":"");
         row.id = "row-"+msg.id;
 
-        var reactBtnHtml = '<button class="react-btn" onclick="openEmojiPicker(event,\''+msg.id+'\')">😄</button>';
+        var reactBtnHtml = '';
         var emojiPickerHtml = '<div class="emoji-picker" id="ep-'+msg.id+'">'
           + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
               return '<button class="ep-btn" onclick="addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
@@ -357,7 +353,7 @@
         if (isOwn) {
           row.innerHTML = emojiPickerHtml + reactBtnHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble mine">'+escHtml(msg.text)+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
+            '<div class="bubble mine" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+escHtml(msg.text)+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
             (showHeader?'<div class="avatar" style="background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+initials(msg.name)+'</div>':
             '<div class="avatar-placeholder"></div>');
         } else {
@@ -365,7 +361,7 @@
             '<div class="avatar-placeholder"></div>')+
             emojiPickerHtml + reactBtnHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble theirs">'+escHtml(msg.text)+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
+            '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+escHtml(msg.text)+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
         }
         container.appendChild(row);
         renderReactions(msg.id, msg.reactions||{});
