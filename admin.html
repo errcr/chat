@@ -586,6 +586,8 @@
       document.getElementById("pane-" + t).style.display = t === tab ? "block" : "none";
       document.getElementById("tab-"  + t).classList.toggle("active", t === tab);
     });
+    if (tab === "online") renderOnlineTab();
+    if (tab === "users")  refreshUsersTable();
   };
 
   // ── Data ──
@@ -728,9 +730,10 @@
 
   function renderOnlineTab() {
     var grid = document.getElementById("online-grid");
+    if (!grid) return;
     var keys = Object.keys(usersFromPresence);
     if (keys.length === 0) {
-      grid.innerHTML = '<div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.</div>';
+      grid.innerHTML = '<div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.<br><small style="color:var(--muted);font-size:11px">Os usuários aparecem aqui quando estão com o chat aberto.</small></div>';
       return;
     }
     grid.innerHTML = keys.map(function(uid) {
