@@ -622,20 +622,31 @@
 
   function listenRooms() {
     db.ref("messages").on("value", function(snap) {
-      allRooms = snap.exists() ? Object.keys(snap.val()) : [];
-      document.getElementById("stat-rooms").textContent = allRooms.length;
-      var userSet = {};
-      if (snap.exists()) {
-        Object.keys(snap.val()).forEach(function(room) {
-          Object.keys(snap.val()[room]).forEach(function(k) {
-            var msg = snap.val()[room][k];
+      var roomsFromMsgs = snap.exists() ? Object.keys(snap.val()) : [];
+      var msgData = snap.exists() ? snap.val() : {};
+
+      // também busca salas em room_settings (salas com senha mas sem mensagens)
+      db.ref("room_settings").once("value", function(snap2) {
+        var roomsFromSettings = snap2.exists() ? Object.keys(snap2.val()) : [];
+
+        // une as duas listas sem duplicatas
+        var allRoomsSet = {};
+        roomsFromMsgs.forEach(function(r){ allRoomsSet[r]=true; });
+        roomsFromSettings.forEach(function(r){ allRoomsSet[r]=true; });
+        allRooms = Object.keys(allRoomsSet);
+
+        document.getElementById("stat-rooms").textContent = allRooms.length;
+        var userSet = {};
+        roomsFromMsgs.forEach(function(room) {
+          Object.keys(msgData[room]).forEach(function(k) {
+            var msg = msgData[room][k];
             if (msg.userId) userSet[msg.userId] = true;
           });
         });
-      }
-      document.getElementById("stat-total").textContent = Object.keys(userSet).length;
-      renderRoomsList();
-      refreshUsersTable(snap.exists() ? snap.val() : {});
+        document.getElementById("stat-total").textContent = Object.keys(userSet).length;
+        renderRoomsList();
+        refreshUsersTable(msgData);
+      });
     });
   }
 
