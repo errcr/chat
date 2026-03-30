@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatSpace</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0e17;
+      --surface: #1a1826;
+      --surface2: #222033;
+      --border: #2e2b45;
+      --accent: #7c6af7;
+      --accent2: #a78bfa;
+      --text: #e8e6f4;
+      --muted: #6b6880;
+      --green: #34d399;
+      --font: 'Nunito', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* ── LOGIN SCREEN ── */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      width: 100%;
+      max-width: 360px;
+      padding: 24px;
+      animation: fadeUp 0.4s ease;
+    }
+
+    .logo {
+      width: 64px; height: 64px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px;
+      box-shadow: 0 8px 32px #7c6af740;
+    }
+
+    .login-title {
+      font-size: 26px; font-weight: 800;
+      text-align: center; letter-spacing: -0.5px;
+    }
+    .login-title span { color: var(--accent2); }
+
+    .login-sub {
+      color: var(--muted); font-size: 13.5px;
+      text-align: center; line-height: 1.6;
+    }
+
+    .input-group {
+      width: 100%; display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .input-field {
+      width: 100%; padding: 13px 16px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14.5px;
+      transition: border-color 0.2s;
+    }
+    .input-field:focus { outline: none; border-color: var(--accent); }
+    .input-field::placeholder { color: var(--muted); }
+
+    .btn-primary {
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border: none; border-radius: 12px;
+      color: #fff; font-family: var(--font);
+      font-size: 15px; font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 4px 20px #7c6af740;
+    }
+    .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn-primary:active { transform: scale(0.97); }
+
+    /* ── CHAT APP ── */
+    #chat-app {
+      display: none;
+      width: 100%; height: 100vh;
+      flex-direction: column;
+    }
+
+    /* Header */
+    .chat-header {
+      padding: 14px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .chat-header .logo-sm {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .chat-header h1 { font-size: 16px; font-weight: 800; }
+    .chat-header .room { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+    .online-badge {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--green); font-family: var(--mono);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+
+    /* Messages area */
+    #messages {
+      flex: 1; overflow-y: auto;
+      padding: 20px 16px;
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .date-divider {
+      text-align: center; color: var(--muted);
+      font-size: 11px; font-family: var(--mono);
+      display: flex; align-items: center; gap: 10px;
+      margin: 12px 0;
+    }
+    .date-divider::before, .date-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .msg-row {
+      display: flex; gap: 10px; align-items: flex-end;
+      animation: fadeUp 0.2s ease;
+    }
+    .msg-row.own { flex-direction: row-reverse; }
+    .msg-row.group-tail { margin-top: 12px; }
+
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; flex-shrink: 0;
+      font-family: var(--mono);
+    }
+    .avatar-placeholder { width: 34px; flex-shrink: 0; }
+
+    .msg-body { max-width: 70%; display: flex; flex-direction: column; }
+    .msg-row.own .msg-body { align-items: flex-end; }
+
+    .msg-name {
+      font-size: 11px; font-weight: 700; margin-bottom: 3px;
+      padding: 0 4px; font-family: var(--mono);
+    }
+
+    .bubble {
+      padding: 9px 14px;
+      border-radius: 18px;
+      font-size: 14.5px; line-height: 1.55;
+      word-break: break-word;
+    }
+    .bubble.theirs {
+      background: var(--surface2);
+      border-radius: 18px 18px 18px 4px;
+      color: var(--text);
+    }
+    .bubble.mine {
+      background: var(--accent);
+      border-radius: 18px 18px 4px 18px;
+      color: #fff;
+    }
+    .msg-time {
+      font-size: 10px; color: var(--muted);
+      margin-top: 3px; padding: 0 4px;
+      font-family: var(--mono);
+    }
+
+    /* Typing indicator */
+    #typing-indicator {
+      display: none;
+      padding: 0 16px 8px;
+      font-size: 12px; color: var(--muted); font-family: var(--mono);
+      animation: fadeUp 0.2s ease;
+    }
+
+    /* Input bar */
+    .input-bar {
+      padding: 14px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .input-wrap {
+      flex: 1; display: flex; align-items: center;
+      background: var(--surface2); border-radius: 14px;
+      border: 1.5px solid var(--border);
+      padding: 10px 14px; gap: 10px;
+      transition: border-color 0.2s;
+    }
+    .input-wrap:focus-within { border-color: var(--accent); }
+
+    #msg-input {
+      flex: 1; background: none; border: none;
+      color: var(--text); font-family: var(--font);
+      font-size: 14.5px; resize: none; height: 22px;
+      max-height: 100px; overflow-y: auto;
+      line-height: 1.5;
+    }
+    #msg-input:focus { outline: none; }
+    #msg-input::placeholder { color: var(--muted); }
+
+    .send-btn {
+      width: 38px; height: 38px; border-radius: 11px;
+      background: var(--accent); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all 0.2s; box-shadow: 0 2px 12px #7c6af740;
+    }
+    .send-btn:hover { background: var(--accent2); transform: scale(1.06); }
+    .send-btn:active { transform: scale(0.95); }
+    .send-btn:disabled { background: var(--border); box-shadow: none; cursor: default; transform: none; }
+
+    .user-chip {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 10px; background: var(--surface2);
+      border-radius: 10px; margin-left: auto; flex-shrink: 0;
+    }
+    .user-chip-avatar {
+      width: 24px; height: 24px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800; font-family: var(--mono);
+    }
+    .user-chip span { font-size: 12.5px; font-weight: 700; color: var(--muted); }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      color: var(--muted); font-size: 13px; text-align: center;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="logo">💬</div>
+  <div>
+    <div class="login-title">Bem-vindo ao <span>ChatSpace</span></div>
+    <div class="login-sub" style="margin-top:8px">Entre com seu nome para começar a conversar em tempo real.</div>
+  </div>
+  <div class="input-group">
+    <input id="username-input" class="input-field" type="text" placeholder="Seu nome..." maxlength="24" autocomplete="off"/>
+    <input id="room-input" class="input-field" type="text" placeholder="Nome da sala (ex: geral)" maxlength="32" autocomplete="off" value="geral"/>
+    <button class="btn-primary" onclick="enterChat()">Entrar no chat →</button>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div id="chat-app">
+  <div class="chat-header">
+    <div class="logo-sm">💬</div>
+    <div>
+      <h1>ChatSpace</h1>
+      <div class="room" id="room-label"># geral</div>
+    </div>
+    <div class="online-badge"><div class="dot"></div><span id="online-count">conectando...</span></div>
+  </div>
+
+  <div id="messages">
+    <div class="empty-state" id="empty-state">
+      <div class="icon">💬</div>
+      <div>Nenhuma mensagem ainda.<br/>Seja o primeiro a falar!</div>
+    </div>
+  </div>
+
+  <div id="typing-indicator"></div>
+
+  <div class="input-bar">
+    <div class="input-wrap">
+      <textarea id="msg-input" rows="1" placeholder="Escreva uma mensagem..." maxlength="500"></textarea>
+    </div>
+    <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+    <div class="user-chip">
+      <div class="user-chip-avatar" id="my-chip-avatar"></div>
+      <span id="my-chip-name"></span>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, push, onValue, onDisconnect, set, serverTimestamp, off }
+    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
+    authDomain: "chat-d61cc.firebaseapp.com",
+    databaseURL: "https://chat-d61cc-default-rtdb.firebaseio.com",
+    projectId: "chat-d61cc",
+    storageBucket: "chat-d61cc.firebasestorage.app",
+    messagingSenderId: "726411546652",
+    appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Color palette for avatars
+  const COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
+  function colorFor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return COLORS[Math.abs(h) % COLORS.length];
+  }
+  function initials(name) { return name.slice(0,2).toUpperCase(); }
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
+  }
+
+  let myName = "", myRoom = "", myId = "";
+  let presenceRef = null;
+  let msgListenerRef = null;
+  let presenceListenerRef = null;
+  let typingListenerRef = null;
+  let typingTimeout = null;
+  let isTyping = false;
+  let renderedIds = new Set();
+  let lastUserId = null;
+
+  window.enterChat = function() {
+    const nameEl = document.getElementById("username-input");
+    const roomEl = document.getElementById("room-input");
+    myName = nameEl.value.trim();
+    myRoom = (roomEl.value.trim() || "geral").toLowerCase().replace(/\s+/g,"-");
+    if (!myName) { nameEl.focus(); return; }
+
+    myId = Math.random().toString(36).slice(2);
+
+    document.getElementById("login-screen").style.display = "none";
+    const chatApp = document.getElementById("chat-app");
+    chatApp.style.display = "flex";
+
+    document.getElementById("room-label").textContent = "# " + myRoom;
+
+    const chipAvatar = document.getElementById("my-chip-avatar");
+    const c = colorFor(myName);
+    chipAvatar.style.background = c + "33";
+    chipAvatar.style.border = "2px solid " + c + "66";
+    chipAvatar.style.color = c;
+    chipAvatar.textContent = initials(myName);
+    document.getElementById("my-chip-name").textContent = myName;
+
+    setupPresence();
+    listenMessages();
+    listenTyping();
+  };
+
+  function setupPresence() {
+    presenceRef = ref(db, `presence/${myRoom}/${myId}`);
+    set(presenceRef, { name: myName, online: true });
+    onDisconnect(presenceRef).remove();
+
+    presenceListenerRef = ref(db, `presence/${myRoom}`);
+    onValue(presenceListenerRef, snap => {
+      const count = snap.exists() ? Object.keys(snap.val()).length : 0;
+      document.getElementById("online-count").textContent =
+        count === 1 ? "1 online" : `${count} online`;
+    });
+  }
+
+  function listenMessages() {
+    msgListenerRef = ref(db, `messages/${myRoom}`);
+    onValue(msgListenerRef, snap => {
+      if (!snap.exists()) return;
+      const data = snap.val();
+      const msgs = Object.entries(data).map(([k,v]) => ({id:k,...v})).sort((a,b)=>a.ts-b.ts);
+
+      const emptyState = document.getElementById("empty-state");
+      if (msgs.length > 0 && emptyState) emptyState.remove();
+
+      const container = document.getElementById("messages");
+      let prevUserId = lastUserId;
+
+      msgs.forEach(msg => {
+        if (renderedIds.has(msg.id)) return;
+        renderedIds.add(msg.id);
+        const isOwn = msg.userId === myId;
+        const color = colorFor(msg.name);
+        const showHeader = prevUserId !== msg.userId;
+
+        const row = document.createElement("div");
+        row.className = "msg-row" + (isOwn ? " own" : "") + (showHeader ? " group-tail" : "");
+
+        if (isOwn) {
+          row.innerHTML = `
+            <div class="msg-body">
+              ${showHeader ? `<div class="msg-name" style="color:${color}">${escHtml(msg.name)}</div>` : ""}
+              <div class="bubble mine">${escHtml(msg.text)}</div>
+              <div class="msg-time">${fmtTime(msg.ts)}</div>
+            </div>
+            ${showHeader
+              ? `<div class="avatar" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(msg.name)}</div>`
+              : `<div class="avatar-placeholder"></div>`}
+          `;
+        } else {
+          row.innerHTML = `
+            ${showHeader
+              ? `<div class="avatar" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(msg.name)}</div>`
+              : `<div class="avatar-placeholder"></div>`}
+            <div class="msg-body">
+              ${showHeader ? `<div class="msg-name" style="color:${color}">${escHtml(msg.name)}</div>` : ""}
+              <div class="bubble theirs">${escHtml(msg.text)}</div>
+              <div class="msg-time">${fmtTime(msg.ts)}</div>
+            </div>
+          `;
+        }
+
+        container.appendChild(row);
+        prevUserId = msg.userId;
+      });
+
+      lastUserId = prevUserId;
+      scrollBottom();
+    });
+  }
+
+  function listenTyping() {
+    typingListenerRef = ref(db, `typing/${myRoom}`);
+    onValue(typingListenerRef, snap => {
+      const indicator = document.getElementById("typing-indicator");
+      if (!snap.exists()) { indicator.style.display = "none"; return; }
+      const typers = Object.values(snap.val()).filter(t => t.userId !== myId && t.active);
+      if (typers.length === 0) { indicator.style.display = "none"; return; }
+      const names = typers.map(t => t.name).join(", ");
+      indicator.textContent = names + (typers.length === 1 ? " está digitando..." : " estão digitando...");
+      indicator.style.display = "block";
+      scrollBottom();
+    });
+  }
+
+  window.sendMessage = function() {
+    const input = document.getElementById("msg-input");
+    const text = input.value.trim();
+    if (!text) return;
+
+    push(ref(db, `messages/${myRoom}`), { name: myName, userId: myId, text, ts: Date.now() });
+    clearTypingStatus();
+    input.value = "";
+    input.style.height = "22px";
+    document.getElementById("send-btn").disabled = true;
+  };
+
+  function setTypingStatus(active) {
+    set(ref(db, `typing/${myRoom}/${myId}`), { name: myName, userId: myId, active });
+  }
+  function clearTypingStatus() {
+    isTyping = false;
+    setTypingStatus(false);
+    clearTimeout(typingTimeout);
+  }
+
+  // Input events
+  document.addEventListener("DOMContentLoaded", () => {});
+  setTimeout(() => {
+    const input = document.getElementById("msg-input");
+    const sendBtn = document.getElementById("send-btn");
+
+    input.addEventListener("input", () => {
+      // auto-resize
+      input.style.height = "22px";
+      input.style.height = Math.min(input.scrollHeight, 100) + "px";
+      sendBtn.disabled = !input.value.trim();
+
+      // typing
+      if (!isTyping) { isTyping = true; setTypingStatus(true); }
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => { isTyping = false; setTypingStatus(false); }, 2000);
+    });
+
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        if (!sendBtn.disabled) window.sendMessage();
+      }
+    });
+
+    document.getElementById("username-input")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") window.enterChat();
+    });
+  }, 100);
+
+  function scrollBottom() {
+    const el = document.getElementById("messages");
+    requestAnimationFrame(() => el.scrollTop = el.scrollHeight);
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+</script>
+</body>
+</html>
