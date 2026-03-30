@@ -496,18 +496,13 @@
   </div>
 </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import {
-    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import {
-    getDatabase, ref, onValue, off
-  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+  var ADMIN_EMAIL = "pericles.sql@gmail.com";
 
-  const ADMIN_EMAIL = "pericles.sql@gmail.com";
-
-  const firebaseConfig = {
+  firebase.initializeApp({
     apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
     authDomain: "chat-d61cc.firebaseapp.com",
     databaseURL: "https://chat-d61cc-default-rtdb.firebaseio.com",
@@ -515,14 +510,13 @@
     storageBucket: "chat-d61cc.firebasestorage.app",
     messagingSenderId: "726411546652",
     appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
-  };
+  });
 
-  const app  = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db   = getDatabase(app);
+  var auth = firebase.auth();
+  var db   = firebase.database();
 
   // ── Helpers ──
-  const COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
+  var COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
   function colorFor(name) {
     let h = 0;
     for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
@@ -542,11 +536,11 @@
   function hide(id) { document.getElementById(id).style.display = "none"; }
 
   // ── Login ──
-  window.doLogin = async function() {
-    const email = document.getElementById("email-input").value.trim();
-    const pass  = document.getElementById("password-input").value;
-    const btn   = document.getElementById("login-btn");
-    const err   = document.getElementById("error-msg");
+  window.doLogin = function() {
+    var email = document.getElementById("email-input").value.trim();
+    var pass  = document.getElementById("password-input").value;
+    var btn   = document.getElementById("login-btn");
+    var err   = document.getElementById("error-msg");
     err.style.display = "none";
 
     if (email !== ADMIN_EMAIL) {
@@ -557,23 +551,22 @@
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div>';
 
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch(e) {
-      btn.disabled = false; btn.textContent = "Entrar";
-      err.textContent = "E-mail ou senha incorretos.";
-      err.style.display = "block";
-    }
+    auth.signInWithEmailAndPassword(email, pass)
+      .catch(function(e) {
+        btn.disabled = false; btn.textContent = "Entrar";
+        err.textContent = "E-mail ou senha incorretos.";
+        err.style.display = "block";
+      });
   };
 
-  window.doLogout = () => signOut(auth);
+  window.doLogout = function() { auth.signOut(); };
 
-  document.getElementById("password-input").addEventListener("keydown", e => {
+  document.getElementById("password-input").addEventListener("keydown", function(e) {
     if (e.key === "Enter") window.doLogin();
   });
 
   // ── Auth state ──
-  onAuthStateChanged(auth, user => {
+  auth.onAuthStateChanged(function(user) {
     if (user && user.email === ADMIN_EMAIL) {
       document.getElementById("login-screen").style.display = "none";
       document.getElementById("admin-panel").style.display  = "flex";
@@ -589,217 +582,162 @@
 
   // ── Tabs ──
   window.switchTab = function(tab) {
-    ["users","messages","online"].forEach(t => {
+    ["users","messages","online"].forEach(function(t) {
       document.getElementById("pane-" + t).style.display = t === tab ? "block" : "none";
       document.getElementById("tab-"  + t).classList.toggle("active", t === tab);
     });
   };
 
-  // ── Data listeners ──
-  let presenceData = {}; // roomName -> { uid -> {name, online} }
-  let usersFromPresence = {}; // uid -> { name, rooms[] }
-  let allRooms = [];
-  let activeRoomListener = null;
-  let activeRoomRef = null;
-  let selectedRoom = null;
+  // ── Data ──
+  var presenceData = {};
+  var usersFromPresence = {};
+  var allRooms = [];
+  var activeRoomRef = null;
+  var selectedRoom = null;
+  var allMessagesData = {};
 
   function initAdmin() {
     listenPresence();
     listenRooms();
   }
 
-  // Listen to ALL presence nodes to know who is online
   function listenPresence() {
-    const presRef = ref(db, "presence");
-    onValue(presRef, snap => {
+    db.ref("presence").on("value", function(snap) {
       presenceData = snap.exists() ? snap.val() : {};
-
-      // Build user->rooms map
       usersFromPresence = {};
-      Object.entries(presenceData).forEach(([room, users]) => {
-        Object.entries(users).forEach(([uid, info]) => {
+      Object.keys(presenceData).forEach(function(room) {
+        Object.keys(presenceData[room]).forEach(function(uid) {
+          var info = presenceData[room][uid];
           if (!usersFromPresence[uid]) usersFromPresence[uid] = { name: info.name, rooms: [] };
           usersFromPresence[uid].rooms.push(room);
         });
       });
-
-      const onlineCount = Object.keys(usersFromPresence).length;
-      document.getElementById("stat-online").textContent = onlineCount;
-
+      document.getElementById("stat-online").textContent = Object.keys(usersFromPresence).length;
       renderOnlineTab();
       refreshUsersTable();
     });
   }
 
-  // Listen to all messages nodes to discover rooms
   function listenRooms() {
-    const msgRef = ref(db, "messages");
-    onValue(msgRef, snap => {
+    db.ref("messages").on("value", function(snap) {
       allRooms = snap.exists() ? Object.keys(snap.val()) : [];
       document.getElementById("stat-rooms").textContent = allRooms.length;
-
-      // Count total unique users across messages
-      let userSet = new Set();
+      var userSet = {};
       if (snap.exists()) {
-        Object.values(snap.val()).forEach(room => {
-          Object.values(room).forEach(msg => { if (msg.userId) userSet.add(msg.userId); });
+        Object.keys(snap.val()).forEach(function(room) {
+          Object.keys(snap.val()[room]).forEach(function(k) {
+            var msg = snap.val()[room][k];
+            if (msg.userId) userSet[msg.userId] = true;
+          });
         });
       }
-      document.getElementById("stat-total").textContent = userSet.size;
-
+      document.getElementById("stat-total").textContent = Object.keys(userSet).length;
       renderRoomsList();
       refreshUsersTable(snap.exists() ? snap.val() : {});
     });
   }
 
-  // ── Users table ──
-  let allMessagesData = {};
   function refreshUsersTable(msgData) {
     if (msgData) allMessagesData = msgData;
-
-    // Build uid -> { name, msgCount } from messages
-    const usersMap = {};
-    Object.entries(allMessagesData).forEach(([room, msgs]) => {
-      Object.values(msgs).forEach(msg => {
+    var usersMap = {};
+    Object.keys(allMessagesData).forEach(function(room) {
+      Object.keys(allMessagesData[room]).forEach(function(k) {
+        var msg = allMessagesData[room][k];
         if (!msg.userId) return;
         if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, msgCount: 0 };
         usersMap[msg.userId].msgCount++;
       });
     });
-
-    // Merge with presence
-    Object.entries(usersFromPresence).forEach(([uid, info]) => {
-      if (!usersMap[uid]) usersMap[uid] = { name: info.name, msgCount: 0 };
+    Object.keys(usersFromPresence).forEach(function(uid) {
+      if (!usersMap[uid]) usersMap[uid] = { name: usersFromPresence[uid].name, msgCount: 0 };
     });
-
-    const tbody = document.getElementById("users-tbody");
+    var tbody = document.getElementById("users-tbody");
     if (Object.keys(usersMap).length === 0) {
-      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>`;
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>';
       return;
     }
-
-    tbody.innerHTML = Object.entries(usersMap).map(([uid, info]) => {
-      const online    = !!usersFromPresence[uid];
-      const rooms     = usersFromPresence[uid]?.rooms || [];
-      const color     = colorFor(info.name);
-      const statusHtml = online
-        ? `<span class="online-dot"><span class="dot"></span> online</span>`
-        : `<span class="offline-dot">offline</span>`;
-      const roomHtml = rooms.length
-        ? rooms.map(r => `<span class="tag tag-room">#${escHtml(r)}</span>`).join(" ")
-        : `<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>`;
-
-      return `<tr>
-        <td>
-          <div class="user-row-name">
-            <div class="user-avatar" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(info.name)}</div>
-            <div>
-              <div class="user-name">${escHtml(info.name)}</div>
-            </div>
-          </div>
-        </td>
-        <td>${statusHtml}</td>
-        <td>${roomHtml}</td>
-      </tr>`;
+    tbody.innerHTML = Object.keys(usersMap).map(function(uid) {
+      var info    = usersMap[uid];
+      var online  = !!usersFromPresence[uid];
+      var rooms   = usersFromPresence[uid] ? usersFromPresence[uid].rooms : [];
+      var color   = colorFor(info.name);
+      var statusHtml = online
+        ? '<span class="online-dot"><span class="dot"></span> online</span>'
+        : '<span class="offline-dot">offline</span>';
+      var roomHtml = rooms.length
+        ? rooms.map(function(r) { return '<span class="tag tag-room">#' + escHtml(r) + '</span>'; }).join(" ")
+        : '<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>';
+      return '<tr><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + escHtml(info.name) + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td></tr>';
     }).join("");
   }
 
-  // ── Rooms list ──
   function renderRoomsList() {
-    const body = document.getElementById("rooms-list-body");
+    var body = document.getElementById("rooms-list-body");
     if (allRooms.length === 0) {
-      body.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;font-family:var(--mono)">Nenhuma sala.</div>`;
+      body.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px;font-family:var(--mono)">Nenhuma sala.</div>';
       return;
     }
-
-    // Count messages per room
-    const counts = {};
-    Object.entries(allMessagesData).forEach(([room, msgs]) => {
-      counts[room] = Object.keys(msgs).length;
+    var counts = {};
+    Object.keys(allMessagesData).forEach(function(room) {
+      counts[room] = Object.keys(allMessagesData[room]).length;
     });
-
-    body.innerHTML = allRooms.map(room => {
-      const active = room === selectedRoom;
-      return `<div class="room-item ${active ? "active" : ""}" onclick="selectRoom('${room}')">
-        <span class="room-name ${active ? "active" : ""}">#${escHtml(room)}</span>
-        <span class="room-count">${counts[room] || 0}</span>
-      </div>`;
+    body.innerHTML = allRooms.map(function(room) {
+      var active = room === selectedRoom;
+      return '<div class="room-item ' + (active ? "active" : "") + '" onclick="selectRoom(\'' + room + '\')">' +
+        '<span class="room-name ' + (active ? "active" : "") + '">#' + escHtml(room) + '</span>' +
+        '<span class="room-count">' + (counts[room] || 0) + '</span></div>';
     }).join("");
   }
 
-  // ── Select room ──
   window.selectRoom = function(room) {
     selectedRoom = room;
     renderRoomsList();
-
-    // Cleanup previous listener
-    if (activeRoomRef) { off(activeRoomRef); activeRoomRef = null; }
-
-    const panel = document.getElementById("messages-panel");
-    panel.innerHTML = `<div class="messages-panel-header">
-      <span class="room-tag">#${escHtml(room)}</span>
-      <span class="msg-count">carregando...</span>
-    </div><div class="loading"><div class="sp"></div> Carregando mensagens...</div>`;
-
-    activeRoomRef = ref(db, `messages/${room}`);
-    onValue(activeRoomRef, snap => {
+    if (activeRoomRef) { activeRoomRef.off(); activeRoomRef = null; }
+    var panel = document.getElementById("messages-panel");
+    panel.innerHTML = '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span><span class="msg-count">carregando...</span></div><div class="loading"><div class="sp"></div> Carregando mensagens...</div>';
+    activeRoomRef = db.ref("messages/" + room);
+    activeRoomRef.on("value", function(snap) {
       if (!snap.exists()) {
-        panel.innerHTML = `<div class="messages-panel-header"><span class="room-tag">#${escHtml(room)}</span></div>
-          <div class="empty-panel"><div class="icon">🛸</div><div>Nenhuma mensagem ainda.</div></div>`;
+        panel.innerHTML = '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span></div><div class="empty-panel"><div class="icon">🛸</div><div>Nenhuma mensagem ainda.</div></div>';
         return;
       }
+      var msgs = Object.keys(snap.val()).map(function(k) {
+        return Object.assign({ id: k }, snap.val()[k]);
+      }).sort(function(a, b) { return a.ts - b.ts; });
 
-      const msgs = Object.entries(snap.val())
-        .map(([k,v]) => ({id:k,...v}))
-        .sort((a,b) => a.ts - b.ts);
+      var msgsHtml = msgs.map(function(msg) {
+        var color = colorFor(msg.name);
+        return '<div class="admin-msg">' +
+          '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(msg.name) + '</div>' +
+          '<div class="msg-content">' +
+            '<div class="msg-header">' +
+              '<span class="msg-author" style="color:' + color + '">' + escHtml(msg.name) + '</span>' +
+              '<span class="msg-ts">' + fmtTime(msg.ts) + '</span>' +
+            '</div>' +
+            '<div class="msg-text">' + escHtml(msg.text || "[imagem]") + '</div>' +
+          '</div></div>';
+      }).join("");
 
-      panel.innerHTML = `
-        <div class="messages-panel-header">
-          <span class="room-tag">#${escHtml(room)}</span>
-          <span class="msg-count">${msgs.length} mensagem${msgs.length !== 1 ? "s" : ""}</span>
-        </div>
-        <div class="messages-list" id="msg-list">
-          ${msgs.map(msg => {
-            const color = colorFor(msg.name);
-            return `<div class="admin-msg">
-              <div class="av" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(msg.name)}</div>
-              <div class="msg-content">
-                <div class="msg-header">
-                  <span class="msg-author" style="color:${color}">${escHtml(msg.name)}</span>
-                  <span class="msg-ts">${fmtTime(msg.ts)}</span>
-                </div>
-                <div class="msg-text">${escHtml(msg.text)}</div>
-              </div>
-            </div>`;
-          }).join("")}
-        </div>`;
+      panel.innerHTML = '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span><span class="msg-count">' + msgs.length + ' mensagem' + (msgs.length !== 1 ? "s" : "") + '</span></div>' +
+        '<div class="messages-list" id="msg-list">' + msgsHtml + '</div>';
 
-      // scroll to bottom
-      const list = document.getElementById("msg-list");
-      if (list) requestAnimationFrame(() => list.scrollTop = list.scrollHeight);
+      var list = document.getElementById("msg-list");
+      if (list) requestAnimationFrame(function() { list.scrollTop = list.scrollHeight; });
     });
   };
 
-  // ── Online tab ──
   function renderOnlineTab() {
-    const grid = document.getElementById("online-grid");
-    const entries = Object.entries(usersFromPresence);
-
-    if (entries.length === 0) {
-      grid.innerHTML = `<div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.</div>`;
+    var grid = document.getElementById("online-grid");
+    var keys = Object.keys(usersFromPresence);
+    if (keys.length === 0) {
+      grid.innerHTML = '<div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.</div>';
       return;
     }
-
-    grid.innerHTML = entries.map(([uid, info]) => {
-      const color = colorFor(info.name);
-      const rooms = info.rooms.join(", #");
-      return `<div class="online-card">
-        <div class="av" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(info.name)}</div>
-        <div class="info">
-          <div class="name">${escHtml(info.name)}</div>
-          <div class="room">#${escHtml(rooms)}</div>
-        </div>
-      </div>`;
+    grid.innerHTML = keys.map(function(uid) {
+      var info  = usersFromPresence[uid];
+      var color = colorFor(info.name);
+      var rooms = info.rooms.join(", #");
+      return '<div class="online-card"><div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div class="info"><div class="name">' + escHtml(info.name) + '</div><div class="room">#' + escHtml(rooms) + '</div></div></div>';
     }).join("");
   }
 </script>
