@@ -417,7 +417,7 @@
     el.innerHTML = Object.keys(counts).map(function(em) {
       var uids = counts[em];
       var mine = uids.indexOf(myId) > -1;
-      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="addReaction(\''+msgId+'\',\''+em+'\')">'+em+' <span class="rc">'+uids.length+'</span></span>';
+      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="addReaction(\''+msgId+'\',\''+em+'\')">'+em+'</span>';
     }).join("");
   }
 
