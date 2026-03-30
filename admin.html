@@ -621,31 +621,32 @@
   }
 
   function listenRooms() {
-    db.ref("messages").on("value", function(snap) {
-      var roomsFromMsgs = snap.exists() ? Object.keys(snap.val()) : [];
-      var msgData = snap.exists() ? snap.val() : {};
+    db.ref("messages").on("value", function(snapMsgs) {
+      var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
 
-      // também busca salas em room_settings (salas com senha mas sem mensagens)
-      db.ref("room_settings").once("value", function(snap2) {
-        var roomsFromSettings = snap2.exists() ? Object.keys(snap2.val()) : [];
+      // busca salas em presence e typing também
+      db.ref("presence").once("value", function(snapPres) {
+        db.ref("typing").once("value", function(snapTyp) {
+          db.ref("room_settings").once("value", function(snapSettings) {
+            var allRoomsSet = {};
+            if (snapMsgs.exists())    Object.keys(snapMsgs.val()).forEach(function(r){ allRoomsSet[r]=true; });
+            if (snapPres.exists())    Object.keys(snapPres.val()).forEach(function(r){ allRoomsSet[r]=true; });
+            if (snapTyp.exists())     Object.keys(snapTyp.val()).forEach(function(r){ allRoomsSet[r]=true; });
+            if (snapSettings.exists()) Object.keys(snapSettings.val()).forEach(function(r){ allRoomsSet[r]=true; });
+            allRooms = Object.keys(allRoomsSet).sort();
 
-        // une as duas listas sem duplicatas
-        var allRoomsSet = {};
-        roomsFromMsgs.forEach(function(r){ allRoomsSet[r]=true; });
-        roomsFromSettings.forEach(function(r){ allRoomsSet[r]=true; });
-        allRooms = Object.keys(allRoomsSet);
-
-        document.getElementById("stat-rooms").textContent = allRooms.length;
-        var userSet = {};
-        roomsFromMsgs.forEach(function(room) {
-          Object.keys(msgData[room]).forEach(function(k) {
-            var msg = msgData[room][k];
-            if (msg.userId) userSet[msg.userId] = true;
+            document.getElementById("stat-rooms").textContent = allRooms.length;
+            var userSet = {};
+            Object.keys(msgData).forEach(function(room) {
+              Object.keys(msgData[room]).forEach(function(k) {
+                if (msgData[room][k].userId) userSet[msgData[room][k].userId] = true;
+              });
+            });
+            document.getElementById("stat-total").textContent = Object.keys(userSet).length;
+            renderRoomsList();
+            refreshUsersTable(msgData);
           });
         });
-        document.getElementById("stat-total").textContent = Object.keys(userSet).length;
-        renderRoomsList();
-        refreshUsersTable(msgData);
       });
     });
   }
