@@ -457,6 +457,7 @@
             <th>Usuário</th>
             <th>Status</th>
             <th>Sala atual</th>
+            <th>Mensagens</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
@@ -671,7 +672,9 @@
       tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>';
       return;
     }
-    tbody.innerHTML = Object.keys(usersMap).map(function(uid) {
+    tbody.innerHTML = Object.keys(usersMap).sort(function(a,b){
+      return usersMap[b].msgCount - usersMap[a].msgCount;
+    }).map(function(uid) {
       var info    = usersMap[uid];
       var online  = !!usersFromPresence[uid];
       var rooms   = usersFromPresence[uid] ? usersFromPresence[uid].rooms : [];
@@ -682,7 +685,8 @@
       var roomHtml = rooms.length
         ? rooms.map(function(r) { return '<span class="tag tag-room">#' + escHtml(r) + '</span>'; }).join(" ")
         : '<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>';
-      return '<tr><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + escHtml(info.name) + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td></tr>';
+      var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
+      return '<tr><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + escHtml(info.name) + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td></tr>';
     }).join("");
   }
 

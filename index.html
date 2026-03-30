@@ -114,7 +114,19 @@
     .reaction-pill:hover, .reaction-pill.mine { border-color:var(--accent); background:var(--accent)18; }
     .reaction-pill .rc { font-size:11px; font-weight:700; color:var(--muted); font-family:var(--mono); }
 
-    /* ── Reply ── */
+    /* ── Copiar / Members ── */
+    .copy-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:8px 18px; font-size:13px; font-family:var(--mono); color:var(--text); box-shadow:0 4px 20px #0004; z-index:50; opacity:0; transition:opacity .2s; pointer-events:none; }
+    .copy-toast.show { opacity:1; }
+    .members-panel { position:fixed; top:0; right:-260px; width:240px; height:100vh; background:var(--surface); border-left:1px solid var(--border); z-index:30; transition:right .25s ease; display:flex; flex-direction:column; }
+    .members-panel.open { right:0; }
+    .members-header { padding:16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+    .members-header h3 { font-size:14px; font-weight:800; }
+    .members-close { background:none; border:none; color:var(--muted); cursor:pointer; font-size:18px; padding:0; }
+    .members-list { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+    .member-item { display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; background:var(--surface2); }
+    .member-av { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; font-family:var(--mono); flex-shrink:0; }
+    .member-name { font-size:13px; font-weight:700; }
+    .member-dot { width:7px; height:7px; border-radius:50%; background:var(--green); margin-left:auto; animation:pulse 2s infinite; }
     .reply-preview { display:none; padding:8px 14px; background:var(--surface2); border-left:3px solid var(--accent); border-radius:0; margin:0; align-items:center; gap:8px; border-radius:14px 14px 0 0; }
     .reply-preview.visible { display:flex; }
     .reply-preview-text { flex:1; font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); }
@@ -205,7 +217,7 @@
       <div class="room" id="room-label"></div>
     </div>
     <div class="header-right">
-      <div class="online-badge"><div class="dot"></div><span id="online-count">0 online</span></div>
+      <div class="online-badge" onclick="toggleMembers()" style="cursor:pointer" title="Ver membros"><div class="dot"></div><span id="online-count">0 online</span></div>
       <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Tema claro/escuro">🌙</button>
       <button class="leave-btn" onclick="leaveRoom()">← Sair da sala</button>
     </div>
@@ -239,6 +251,15 @@
     </div>
   </div>
 </div>
+
+<div class="members-panel" id="members-panel">
+  <div class="members-header">
+    <h3>👥 Na sala</h3>
+    <button class="members-close" onclick="toggleMembers()">✕</button>
+  </div>
+  <div class="members-list" id="members-list"></div>
+</div>
+<div class="copy-toast" id="copy-toast">✓ Copiado!</div>
 
 <div id="lightbox" onclick="this.classList.remove('open')">
   <img id="lb-img" src="" alt=""/>
@@ -298,6 +319,64 @@
   }
 
   // ── Tema ──
+  // ── Membros na sala ──
+  var membersData = {};
+  function toggleMembers() {
+    document.getElementById("members-panel").classList.toggle("open");
+  }
+
+  function renderMembers(presence) {
+    membersData = presence || {};
+    var list = document.getElementById("members-list");
+    if (!list) return;
+    var keys = Object.keys(membersData);
+    if (keys.length === 0) {
+      list.innerHTML = '<div style="color:var(--muted);font-size:13px;font-family:var(--mono);text-align:center;padding:20px">Ninguém online</div>';
+      return;
+    }
+    list.innerHTML = keys.map(function(uid) {
+      var info = membersData[uid];
+      var color = colorFor(info.name);
+      var isMe = uid === myId;
+      return '<div class="member-item">' +
+        '<div class="member-av" style="background:'+color+'33;border:2px solid '+color+'66;color:'+color+'">'+initials(info.name)+'</div>' +
+        '<div class="member-name">'+escHtml(info.name)+(isMe?' <span style="font-size:10px;color:var(--muted)">(você)</span>':'')+'</div>' +
+        '<div class="member-dot"></div>' +
+        '</div>';
+    }).join("");
+  }
+
+  // ── Copiar ao segurar ──
+  var pressTimer = null;
+  function setupLongPress(el, text) {
+    el.addEventListener("touchstart", function() {
+      pressTimer = setTimeout(function() {
+        copyText(text);
+      }, 600);
+    });
+    el.addEventListener("touchend", function() { clearTimeout(pressTimer); });
+    el.addEventListener("touchmove", function() { clearTimeout(pressTimer); });
+    el.addEventListener("mousedown", function() {
+      pressTimer = setTimeout(function() { copyText(text); }, 600);
+    });
+    el.addEventListener("mouseup", function() { clearTimeout(pressTimer); });
+  }
+
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(function() {
+      var toast = document.getElementById("copy-toast");
+      toast.classList.add("show");
+      setTimeout(function(){ toast.classList.remove("show"); }, 1800);
+    }).catch(function() {
+      var ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); document.body.removeChild(ta);
+      var toast = document.getElementById("copy-toast");
+      toast.classList.add("show");
+      setTimeout(function(){ toast.classList.remove("show"); }, 1800);
+    });
+  }
+
   var isDark = localStorage.getItem("theme") !== "light";
   function applyTheme() {
     document.body.classList.toggle("light", !isDark);
@@ -530,6 +609,7 @@
   function leaveRoom() {
     cleanupListeners(); hide("chat-app"); show("room-screen");
     document.getElementById("room-pass-input").value = "";
+    document.getElementById("members-panel").classList.remove("open");
     hideRoomPass();
   }
 
@@ -547,8 +627,10 @@
     presenceRef.onDisconnect().remove();
     presenceListenerRef = db.ref("presence/"+myRoom);
     presenceListenerRef.on("value", function(snap) {
-      var count = snap.exists() ? Object.keys(snap.val()).length : 0;
+      var val = snap.exists() ? snap.val() : {};
+      var count = Object.keys(val).length;
       document.getElementById("online-count").textContent = count===1?"1 online":count+" online";
+      renderMembers(val);
     });
   }
 
@@ -614,6 +696,9 @@
             '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
         }
         container.appendChild(row);
+        // long press to copy
+        var bubble = row.querySelector(".bubble");
+        if (bubble && msg.text) setupLongPress(bubble, msg.text);
         renderReactions(msg.id, msg.reactions||{});
         prevUserId = msg.userId;
       });
