@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Chat</title>
+  <title>ChatSpace</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,6 +18,7 @@
       --text: #e8e6f4;
       --muted: #6b6880;
       --green: #34d399;
+      --red: #f87171;
       --font: 'Nunito', sans-serif;
       --mono: 'DM Mono', monospace;
     }
@@ -33,8 +34,18 @@
       overflow: hidden;
     }
 
-    /* ── LOGIN SCREEN ── */
-    #login-screen {
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── AUTH SCREEN ── */
+    #auth-screen {
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -54,19 +65,26 @@
       box-shadow: 0 8px 32px #7c6af740;
     }
 
-    .login-title {
+    .auth-title {
       font-size: 26px; font-weight: 800;
       text-align: center; letter-spacing: -0.5px;
     }
-    .login-title span { color: var(--accent2); }
+    .auth-title span { color: var(--accent2); }
 
-    .login-sub {
+    .auth-sub {
       color: var(--muted); font-size: 13.5px;
       text-align: center; line-height: 1.6;
     }
 
     .input-group {
       width: 100%; display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .input-label {
+      font-size: 12px; font-weight: 700;
+      color: var(--muted); font-family: var(--mono);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: -4px;
     }
 
     .input-field {
@@ -94,6 +112,65 @@
     }
     .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
     .btn-primary:active { transform: scale(0.97); }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    .btn-secondary {
+      width: 100%; padding: 11px;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      color: var(--muted); font-family: var(--font);
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--text); }
+
+    .auth-toggle {
+      font-size: 13.5px; color: var(--muted); text-align: center;
+    }
+    .auth-toggle a {
+      color: var(--accent2); font-weight: 700;
+      cursor: pointer; text-decoration: none;
+    }
+    .auth-toggle a:hover { text-decoration: underline; }
+
+    .error-msg {
+      width: 100%;
+      background: #f8717120;
+      border: 1.5px solid #f8717140;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--red);
+      display: none;
+      animation: fadeUp 0.2s ease;
+    }
+
+    .spinner {
+      width: 20px; height: 20px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin: 0 auto;
+    }
+
+    /* ── ROOM SCREEN ── */
+    #room-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+      width: 100%;
+      max-width: 360px;
+      padding: 24px;
+      animation: fadeUp 0.4s ease;
+    }
+
+    .user-greeting { text-align: center; }
+    .user-greeting .name  { font-size: 18px; font-weight: 800; }
+    .user-greeting .email { font-size: 12px; color: var(--muted); font-family: var(--mono); }
 
     /* ── CHAT APP ── */
     #chat-app {
@@ -102,7 +179,6 @@
       flex-direction: column;
     }
 
-    /* Header */
     .chat-header {
       padding: 14px 20px;
       background: var(--surface);
@@ -115,16 +191,28 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 18px; flex-shrink: 0;
     }
-    .chat-header h1 { font-size: 16px; font-weight: 800; }
+    .chat-header h1   { font-size: 16px; font-weight: 800; }
     .chat-header .room { color: var(--muted); font-size: 12px; font-family: var(--mono); }
-    .online-badge {
+
+    .header-right {
       margin-left: auto;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .online-badge {
       display: flex; align-items: center; gap: 6px;
       font-size: 12px; color: var(--green); font-family: var(--mono);
     }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
 
-    /* Messages area */
+    .leave-btn {
+      background: none; border: none;
+      color: var(--muted); cursor: pointer;
+      font-size: 12px; font-family: var(--mono);
+      padding: 5px 10px; border-radius: 8px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .leave-btn:hover { color: var(--red); background: #f8717115; }
+
     #messages {
       flex: 1; overflow-y: auto;
       padding: 20px 16px;
@@ -132,16 +220,6 @@
     }
     #messages::-webkit-scrollbar { width: 4px; }
     #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-
-    .date-divider {
-      text-align: center; color: var(--muted);
-      font-size: 11px; font-family: var(--mono);
-      display: flex; align-items: center; gap: 10px;
-      margin: 12px 0;
-    }
-    .date-divider::before, .date-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
 
     .msg-row {
       display: flex; gap: 10px; align-items: flex-end;
@@ -172,23 +250,15 @@
       font-size: 14.5px; line-height: 1.55;
       word-break: break-word;
     }
-    .bubble.theirs {
-      background: var(--surface2);
-      border-radius: 18px 18px 18px 4px;
-      color: var(--text);
-    }
-    .bubble.mine {
-      background: var(--accent);
-      border-radius: 18px 18px 4px 18px;
-      color: #fff;
-    }
+    .bubble.theirs { background: var(--surface2); border-radius: 18px 18px 18px 4px; color: var(--text); }
+    .bubble.mine   { background: var(--accent);   border-radius: 18px 18px 4px 18px; color: #fff; }
+
     .msg-time {
       font-size: 10px; color: var(--muted);
       margin-top: 3px; padding: 0 4px;
       font-family: var(--mono);
     }
 
-    /* Typing indicator */
     #typing-indicator {
       display: none;
       padding: 0 16px 8px;
@@ -196,7 +266,6 @@
       animation: fadeUp 0.2s ease;
     }
 
-    /* Input bar */
     .input-bar {
       padding: 14px 16px;
       background: var(--surface);
@@ -216,8 +285,7 @@
       flex: 1; background: none; border: none;
       color: var(--text); font-family: var(--font);
       font-size: 14.5px; resize: none; height: 22px;
-      max-height: 100px; overflow-y: auto;
-      line-height: 1.5;
+      max-height: 100px; overflow-y: auto; line-height: 1.5;
     }
     #msg-input:focus { outline: none; }
     #msg-input::placeholder { color: var(--muted); }
@@ -228,69 +296,97 @@
       display: flex; align-items: center; justify-content: center;
       flex-shrink: 0; transition: all 0.2s; box-shadow: 0 2px 12px #7c6af740;
     }
-    .send-btn:hover { background: var(--accent2); transform: scale(1.06); }
-    .send-btn:active { transform: scale(0.95); }
+    .send-btn:hover   { background: var(--accent2); transform: scale(1.06); }
+    .send-btn:active  { transform: scale(0.95); }
     .send-btn:disabled { background: var(--border); box-shadow: none; cursor: default; transform: none; }
 
     .user-chip {
       display: flex; align-items: center; gap: 7px;
       padding: 6px 10px; background: var(--surface2);
-      border-radius: 10px; margin-left: auto; flex-shrink: 0;
+      border-radius: 20px; border: 1px solid var(--border); flex-shrink: 0;
     }
     .user-chip-avatar {
-      width: 24px; height: 24px; border-radius: 50%;
+      width: 22px; height: 22px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
       font-size: 10px; font-weight: 800; font-family: var(--mono);
     }
-    .user-chip span { font-size: 12.5px; font-weight: 700; color: var(--muted); }
-
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; } 50% { opacity: 0.4; }
+    .user-chip span {
+      font-size: 13px; font-weight: 700;
+      max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
 
-    .empty-state {
+    #empty-state {
       flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 10px;
-      color: var(--muted); font-size: 13px; text-align: center;
+      align-items: center; justify-content: center;
+      gap: 10px; color: var(--muted);
+      font-family: var(--mono); font-size: 13px; text-align: center;
     }
-    .empty-state .icon { font-size: 40px; margin-bottom: 4px; }
+    #empty-state .empty-icon { font-size: 36px; }
   </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="login-screen">
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
   <div class="logo">💬</div>
-  <div>
-    <div class="login-title">Bem-vindo ao <span>Chat</span></div>
-    <div class="login-sub" style="margin-top:8px">Entre com seu nome para começar a conversar em tempo real.</div>
-  </div>
+  <div class="auth-title">Chat<span>Space</span></div>
+  <div class="auth-sub" id="auth-sub">Entre na sua conta para continuar.</div>
+
+  <div class="error-msg" id="error-msg"></div>
+
   <div class="input-group">
-    <input id="username-input" class="input-field" type="text" placeholder="Seu nome..." maxlength="24" autocomplete="off"/>
-    <input id="room-input" class="input-field" type="text" placeholder="Nome da sala (ex: geral)" maxlength="32" autocomplete="off" value="geral"/>
-    <button class="btn-primary" onclick="enterChat()">Entrar no chat →</button>
+    <span class="input-label" id="label-name" style="display:none">Nome de exibição</span>
+    <input class="input-field" id="display-name-input" type="text" placeholder="Seu nome" style="display:none" />
+    <span class="input-label">E-mail</span>
+    <input class="input-field" id="email-input" type="email" placeholder="seu@email.com" />
+    <span class="input-label">Senha</span>
+    <input class="input-field" id="password-input" type="password" placeholder="••••••••" />
+    <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Entrar</button>
+  </div>
+
+  <div class="auth-toggle" id="auth-toggle">
+    Não tem conta? <a onclick="toggleMode()">Criar conta</a>
   </div>
 </div>
 
-<!-- CHAT -->
+<!-- ROOM SCREEN -->
+<div id="room-screen">
+  <div class="logo">💬</div>
+  <div class="user-greeting">
+    <div class="name"  id="greeting-name"></div>
+    <div class="email" id="greeting-email"></div>
+  </div>
+  <div class="auth-sub">Escolha uma sala para entrar:</div>
+  <div class="input-group">
+    <span class="input-label">Sala</span>
+    <input class="input-field" id="room-input" type="text" placeholder="geral" />
+    <button class="btn-primary" onclick="enterRoom()">Entrar na sala</button>
+  </div>
+  <button class="btn-secondary" onclick="logout()">Sair da conta</button>
+</div>
+
+<!-- CHAT APP -->
 <div id="chat-app">
   <div class="chat-header">
     <div class="logo-sm">💬</div>
     <div>
-      <h1>Chat</h1>
-      <div class="room" id="room-label"># geral</div>
+      <h1>ChatSpace</h1>
+      <div class="room" id="room-label"></div>
     </div>
-    <div class="online-badge"><div class="dot"></div><span id="online-count">conectando...</span></div>
+    <div class="header-right">
+      <div class="online-badge">
+        <div class="dot"></div>
+        <span id="online-count">0 online</span>
+      </div>
+      <button class="leave-btn" onclick="leaveRoom()">← Sair da sala</button>
+    </div>
   </div>
 
   <div id="messages">
-    <div class="empty-state" id="empty-state">
-      <div class="icon">💬</div>
-      <div>Nenhuma mensagem ainda.<br/>Seja o primeiro a falar!</div>
+    <div id="empty-state">
+      <div class="empty-icon">🛸</div>
+      <div>Nenhuma mensagem ainda.</div>
+      <div>Seja o primeiro a falar!</div>
     </div>
   </div>
 
@@ -313,11 +409,15 @@
   </div>
 </div>
 
-<!-- Firebase -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, push, onValue, onDisconnect, set, serverTimestamp, off }
-    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import {
+    getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+    signOut, onAuthStateChanged, updateProfile
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    getDatabase, ref, push, onValue, onDisconnect, set, off, remove
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
@@ -329,10 +429,11 @@
     appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
 
-  // Color palette for avatars
+  // ── Helpers ──
   const COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
   function colorFor(name) {
     let h = 0;
@@ -344,50 +445,164 @@
     const d = new Date(ts);
     return d.getHours().toString().padStart(2,"0") + ":" + d.getMinutes().toString().padStart(2,"0");
   }
+  function escHtml(s) {
+    return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.textContent = msg; el.style.display = "block";
+  }
+  function hideError() { document.getElementById("error-msg").style.display = "none"; }
 
-  let myName = "", myRoom = "", myId = "";
-  let presenceRef = null;
-  let msgListenerRef = null;
-  let presenceListenerRef = null;
-  let typingListenerRef = null;
-  let typingTimeout = null;
-  let isTyping = false;
-  let renderedIds = new Set();
-  let lastUserId = null;
+  function show(id)  { document.getElementById(id).style.display = "flex"; }
+  function hide(id)  { document.getElementById(id).style.display = "none"; }
 
-  window.enterChat = function() {
-    const nameEl = document.getElementById("username-input");
-    const roomEl = document.getElementById("room-input");
-    myName = nameEl.value.trim();
-    myRoom = (roomEl.value.trim() || "geral").toLowerCase().replace(/\s+/g,"-");
-    if (!myName) { nameEl.focus(); return; }
+  // ── Auth mode ──
+  let isRegisterMode = false;
 
-    myId = Math.random().toString(36).slice(2);
+  window.toggleMode = function() {
+    isRegisterMode = !isRegisterMode;
+    hideError();
+    const nameInput = document.getElementById("display-name-input");
+    const labelName = document.getElementById("label-name");
+    if (isRegisterMode) {
+      nameInput.style.display = "block";
+      labelName.style.display = "block";
+      document.getElementById("auth-sub").textContent   = "Crie sua conta gratuita.";
+      document.getElementById("auth-btn").textContent   = "Criar conta";
+      document.getElementById("auth-toggle").innerHTML  = 'Já tem conta? <a onclick="toggleMode()">Entrar</a>';
+    } else {
+      nameInput.style.display = "none";
+      labelName.style.display = "none";
+      document.getElementById("auth-sub").textContent   = "Entre na sua conta para continuar.";
+      document.getElementById("auth-btn").textContent   = "Entrar";
+      document.getElementById("auth-toggle").innerHTML  = 'Não tem conta? <a onclick="toggleMode()">Criar conta</a>';
+    }
+  };
 
-    document.getElementById("login-screen").style.display = "none";
-    const chatApp = document.getElementById("chat-app");
-    chatApp.style.display = "flex";
+  window.handleAuth = async function() {
+    hideError();
+    const email    = document.getElementById("email-input").value.trim();
+    const password = document.getElementById("password-input").value;
+    const name     = document.getElementById("display-name-input").value.trim();
+    const btn      = document.getElementById("auth-btn");
 
+    if (!email || !password) { showError("Preencha e-mail e senha."); return; }
+    if (isRegisterMode && !name) { showError("Digite seu nome de exibição."); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>';
+
+    try {
+      if (isRegisterMode) {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: name });
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = isRegisterMode ? "Criar conta" : "Entrar";
+      const msgs = {
+        "auth/email-already-in-use": "Este e-mail já está em uso.",
+        "auth/invalid-email":        "E-mail inválido.",
+        "auth/weak-password":        "A senha deve ter pelo menos 6 caracteres.",
+        "auth/user-not-found":       "Usuário não encontrado.",
+        "auth/wrong-password":       "Senha incorreta.",
+        "auth/invalid-credential":   "E-mail ou senha incorretos.",
+      };
+      showError(msgs[e.code] || "Erro: " + e.message);
+    }
+  };
+
+  window.logout = async function() { await signOut(auth); };
+
+  // ── Auth state ──
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      hide("auth-screen");
+      hide("chat-app");
+      show("room-screen");
+      document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
+      document.getElementById("greeting-email").textContent = user.email;
+    } else {
+      show("auth-screen");
+      hide("room-screen");
+      hide("chat-app");
+      const btn = document.getElementById("auth-btn");
+      btn.disabled = false;
+      btn.textContent = isRegisterMode ? "Criar conta" : "Entrar";
+    }
+  });
+
+  // ── Room ──
+  window.enterRoom = function() {
+    const val  = document.getElementById("room-input").value.trim();
+    const room = (val || "geral").toLowerCase().replace(/\s+/g,"-");
+    startChat(room);
+  };
+
+  // ── Chat state ──
+  let myRoom = "", myId = "", myName = "";
+  let presenceRef = null, presenceListenerRef = null;
+  let msgListenerRef = null, typingListenerRef = null;
+  let typingTimeout = null, isTyping = false;
+  let renderedIds = new Set(), lastUserId = null;
+
+  function startChat(room) {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    myRoom = room;
+    myId   = user.uid;
+    myName = user.displayName || user.email.split("@")[0];
+
+    renderedIds = new Set();
+    lastUserId  = null;
+
+    const container = document.getElementById("messages");
+    container.innerHTML = `
+      <div id="empty-state">
+        <div class="empty-icon">🛸</div>
+        <div>Nenhuma mensagem ainda.</div>
+        <div>Seja o primeiro a falar!</div>
+      </div>`;
+
+    hide("room-screen");
+    show("chat-app");
     document.getElementById("room-label").textContent = "# " + myRoom;
 
-    const chipAvatar = document.getElementById("my-chip-avatar");
     const c = colorFor(myName);
-    chipAvatar.style.background = c + "33";
-    chipAvatar.style.border = "2px solid " + c + "66";
-    chipAvatar.style.color = c;
-    chipAvatar.textContent = initials(myName);
+    const chip = document.getElementById("my-chip-avatar");
+    chip.style.background = c + "33";
+    chip.style.border     = "2px solid " + c + "66";
+    chip.style.color      = c;
+    chip.textContent      = initials(myName);
     document.getElementById("my-chip-name").textContent = myName;
 
     setupPresence();
     listenMessages();
     listenTyping();
+  }
+
+  window.leaveRoom = function() {
+    cleanupListeners();
+    hide("chat-app");
+    show("room-screen");
   };
+
+  function cleanupListeners() {
+    if (presenceRef)         { remove(presenceRef); presenceRef = null; }
+    if (msgListenerRef)      { off(msgListenerRef);      msgListenerRef = null; }
+    if (presenceListenerRef) { off(presenceListenerRef); presenceListenerRef = null; }
+    if (typingListenerRef)   { off(typingListenerRef);   typingListenerRef = null; }
+    clearTypingStatus();
+  }
 
   function setupPresence() {
     presenceRef = ref(db, `presence/${myRoom}/${myId}`);
     set(presenceRef, { name: myName, online: true });
     onDisconnect(presenceRef).remove();
-
     presenceListenerRef = ref(db, `presence/${myRoom}`);
     onValue(presenceListenerRef, snap => {
       const count = snap.exists() ? Object.keys(snap.val()).length : 0;
@@ -400,8 +615,9 @@
     msgListenerRef = ref(db, `messages/${myRoom}`);
     onValue(msgListenerRef, snap => {
       if (!snap.exists()) return;
-      const data = snap.val();
-      const msgs = Object.entries(data).map(([k,v]) => ({id:k,...v})).sort((a,b)=>a.ts-b.ts);
+      const msgs = Object.entries(snap.val())
+        .map(([k,v]) => ({id:k,...v}))
+        .sort((a,b) => a.ts - b.ts);
 
       const emptyState = document.getElementById("empty-state");
       if (msgs.length > 0 && emptyState) emptyState.remove();
@@ -412,8 +628,8 @@
       msgs.forEach(msg => {
         if (renderedIds.has(msg.id)) return;
         renderedIds.add(msg.id);
-        const isOwn = msg.userId === myId;
-        const color = colorFor(msg.name);
+        const isOwn      = msg.userId === myId;
+        const color      = colorFor(msg.name);
         const showHeader = prevUserId !== msg.userId;
 
         const row = document.createElement("div");
@@ -428,8 +644,7 @@
             </div>
             ${showHeader
               ? `<div class="avatar" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(msg.name)}</div>`
-              : `<div class="avatar-placeholder"></div>`}
-          `;
+              : `<div class="avatar-placeholder"></div>`}`;
         } else {
           row.innerHTML = `
             ${showHeader
@@ -439,8 +654,7 @@
               ${showHeader ? `<div class="msg-name" style="color:${color}">${escHtml(msg.name)}</div>` : ""}
               <div class="bubble theirs">${escHtml(msg.text)}</div>
               <div class="msg-time">${fmtTime(msg.ts)}</div>
-            </div>
-          `;
+            </div>`;
         }
 
         container.appendChild(row);
@@ -468,9 +682,8 @@
 
   window.sendMessage = function() {
     const input = document.getElementById("msg-input");
-    const text = input.value.trim();
+    const text  = input.value.trim();
     if (!text) return;
-
     push(ref(db, `messages/${myRoom}`), { name: myName, userId: myId, text, ts: Date.now() });
     clearTypingStatus();
     input.value = "";
@@ -479,7 +692,7 @@
   };
 
   function setTypingStatus(active) {
-    set(ref(db, `typing/${myRoom}/${myId}`), { name: myName, userId: myId, active });
+    if (myRoom && myId) set(ref(db, `typing/${myRoom}/${myId}`), { name: myName, userId: myId, active });
   }
   function clearTypingStatus() {
     isTyping = false;
@@ -487,19 +700,20 @@
     clearTimeout(typingTimeout);
   }
 
+  function scrollBottom() {
+    const el = document.getElementById("messages");
+    requestAnimationFrame(() => el.scrollTop = el.scrollHeight);
+  }
+
   // Input events
-  document.addEventListener("DOMContentLoaded", () => {});
   setTimeout(() => {
-    const input = document.getElementById("msg-input");
+    const input   = document.getElementById("msg-input");
     const sendBtn = document.getElementById("send-btn");
 
     input.addEventListener("input", () => {
-      // auto-resize
       input.style.height = "22px";
       input.style.height = Math.min(input.scrollHeight, 100) + "px";
       sendBtn.disabled = !input.value.trim();
-
-      // typing
       if (!isTyping) { isTyping = true; setTypingStatus(true); }
       clearTimeout(typingTimeout);
       typingTimeout = setTimeout(() => { isTyping = false; setTypingStatus(false); }, 2000);
@@ -512,19 +726,16 @@
       }
     });
 
-    document.getElementById("username-input")?.addEventListener("keydown", e => {
-      if (e.key === "Enter") window.enterChat();
+    document.getElementById("email-input")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") document.getElementById("password-input").focus();
+    });
+    document.getElementById("password-input")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") window.handleAuth();
+    });
+    document.getElementById("room-input")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") window.enterRoom();
     });
   }, 100);
-
-  function scrollBottom() {
-    const el = document.getElementById("messages");
-    requestAnimationFrame(() => el.scrollTop = el.scrollHeight);
-  }
-
-  function escHtml(str) {
-    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
 </script>
 </body>
 </html>
