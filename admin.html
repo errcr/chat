@@ -643,8 +643,9 @@
               });
             });
             document.getElementById("stat-total").textContent = Object.keys(userSet).length;
+            allMessagesData = msgData;
             renderRoomsList();
-            refreshUsersTable(msgData);
+            refreshUsersTable();
           });
         });
       });
