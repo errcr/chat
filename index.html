@@ -113,6 +113,19 @@
     .reaction-pill { display:flex; align-items:center; gap:3px; background:var(--surface2); border:1.5px solid var(--border); border-radius:20px; padding:2px 8px; font-size:12px; cursor:pointer; transition:border-color .15s; }
     .reaction-pill:hover, .reaction-pill.mine { border-color:var(--accent); background:var(--accent)18; }
     .reaction-pill .rc { font-size:11px; font-weight:700; color:var(--muted); font-family:var(--mono); }
+
+    /* ── Reply ── */
+    .reply-preview { display:none; padding:8px 14px; background:var(--surface2); border-left:3px solid var(--accent); border-radius:0; margin:0; align-items:center; gap:8px; border-radius:14px 14px 0 0; }
+    .reply-preview.visible { display:flex; }
+    .reply-preview-text { flex:1; font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:var(--mono); }
+    .reply-preview-name { font-weight:700; color:var(--accent2); }
+    .reply-cancel { background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; padding:0; line-height:1; }
+    .reply-cancel:hover { color:var(--red); }
+    .reply-bar { border-left:3px solid var(--accent); padding:4px 8px; margin-bottom:4px; border-radius:2px; background:var(--accent)18; }
+    .reply-bar .reply-from { font-size:10px; font-weight:800; color:var(--accent2); font-family:var(--mono); }
+    .reply-bar .reply-txt { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; }
+    .reply-btn { background:none; border:none; cursor:pointer; font-size:13px; padding:2px 5px; border-radius:6px; color:var(--muted); transition:background .15s,color .15s; }
+    .reply-btn:hover { background:var(--surface2); color:var(--text); }
   </style>
 </head>
 <body>
@@ -192,6 +205,10 @@
   <div id="typing-indicator"></div>
   <div class="input-bar">
     <div class="input-wrap">
+      <div class="reply-preview" id="reply-preview">
+        <div class="reply-preview-text">↩ <span class="reply-preview-name" id="reply-preview-name"></span>: <span id="reply-preview-txt"></span></div>
+        <button class="reply-cancel" onclick="cancelReply()">✕</button>
+      </div>
       <div class="img-preview-bar" id="img-preview-bar">
         <img id="img-preview" src="" alt="preview"/>
         <button class="rm" onclick="removeImage()">✕</button>
@@ -285,6 +302,21 @@
 
   // ── Imagem ──
   var pendingImg = null;
+  var pendingReply = null;
+
+  function setReply(msgId, name, text) {
+    document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
+    pendingReply = { msgId:msgId, name:name, text:text };
+    document.getElementById("reply-preview-name").textContent = name;
+    document.getElementById("reply-preview-txt").textContent = text;
+    document.getElementById("reply-preview").classList.add("visible");
+    document.getElementById("msg-input").focus();
+  }
+
+  function cancelReply() {
+    pendingReply = null;
+    document.getElementById("reply-preview").classList.remove("visible");
+  }
   function handleImage(event) {
     var file = event.target.files[0];
     if (!file) return;
@@ -479,12 +511,18 @@
           + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
               return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
             }).join('')
+          + '<button class="reply-btn" onclick="event.stopPropagation();setReply(\''+msg.id+'\','+JSON.stringify(msg.name)+','+JSON.stringify(msg.image?'[imagem]':(msg.text||''))+')">↩</button>'
           + '</div>';
         var reactionsHtml = '<div class="reactions" id="reactions-'+msg.id+'"></div>';
 
-        var bubbleContent = msg.image
+        var replyQuote = '';
+        if (msg.replyTo) {
+          replyQuote = '<div class="reply-bar"><div class="reply-from">'+escHtml(msg.replyTo.name)+'</div><div class="reply-txt">'+escHtml(msg.replyTo.text)+'</div></div>';
+        }
+
+        var bubbleContent = replyQuote + (msg.image
           ? '<img class="bubble-img" src="'+msg.image+'" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
-          : escHtml(msg.text||"");
+          : escHtml(msg.text||""));
 
         if (isOwn) {
           row.innerHTML = emojiPickerHtml + reactBtnHtml +
@@ -528,11 +566,13 @@
     var msg = { name:myName, userId:myId, ts:Date.now() };
     if (pendingImg) { msg.image = pendingImg; msg.text = ""; }
     else { msg.text = text; }
+    if (pendingReply) { msg.replyTo = { name:pendingReply.name, text:pendingReply.text }; }
     db.ref("messages/"+myRoom).push(msg);
     clearTypingStatus();
     input.value=""; input.style.height="22px";
     document.getElementById("send-btn").disabled = true;
     if (pendingImg) removeImage();
+    cancelReply();
   }
 
   function setTypingStatus(active) {
