@@ -83,6 +83,24 @@
     .user-chip span { font-size:13px; font-weight:700; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); font-family:var(--mono); font-size:13px; text-align:center; }
     #empty-state .empty-icon { font-size:36px; }
+
+    /* ── Reações ── */
+    .msg-row { position:relative; }
+    .react-btn { display:none; position:absolute; bottom:18px; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:3px 8px; font-size:13px; cursor:pointer; box-shadow:0 2px 8px #0003; z-index:5; transition:transform .15s; }
+    .react-btn:hover { transform:scale(1.1); }
+    .msg-row:hover .react-btn { display:block; }
+    .msg-row.own .react-btn { right:42px; }
+    .msg-row:not(.own) .react-btn { left:42px; }
+    .emoji-picker { display:none; position:absolute; bottom:44px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:6px 10px; gap:4px; z-index:10; box-shadow:0 4px 20px #0005; flex-direction:row; }
+    .emoji-picker.open { display:flex; }
+    .msg-row.own .emoji-picker { right:42px; }
+    .msg-row:not(.own) .emoji-picker { left:42px; }
+    .ep-btn { font-size:20px; cursor:pointer; padding:4px 5px; border-radius:8px; border:none; background:none; transition:transform .1s; }
+    .ep-btn:hover { transform:scale(1.25); }
+    .reactions { display:flex; flex-wrap:wrap; gap:4px; margin-top:3px; padding:0 4px; min-height:0; }
+    .reaction-pill { display:flex; align-items:center; gap:3px; background:var(--surface2); border:1.5px solid var(--border); border-radius:20px; padding:2px 8px; font-size:12px; cursor:pointer; transition:border-color .15s; }
+    .reaction-pill:hover, .reaction-pill.mine { border-color:var(--accent); background:var(--accent)18; }
+    .reaction-pill .rc { font-size:11px; font-weight:700; color:var(--muted); font-family:var(--mono); }
   </style>
 </head>
 <body>
@@ -315,25 +333,42 @@
       var container = document.getElementById("messages");
       var prevUserId = lastUserId;
       msgs.forEach(function(msg) {
-        if (renderedIds[msg.id]) return;
+        if (renderedIds[msg.id]) {
+          // update reactions on already-rendered messages
+          renderReactions(msg.id, msg.reactions||{});
+          return;
+        }
         renderedIds[msg.id] = true;
         var isOwn      = msg.userId===myId;
         var color      = colorFor(msg.name);
         var showHeader = prevUserId!==msg.userId;
         var row = document.createElement("div");
         row.className = "msg-row"+(isOwn?" own":"")+(showHeader?" group-tail":"");
+        row.id = "row-"+msg.id;
+
+        var reactBtnHtml = '<button class="react-btn" onclick="openEmojiPicker(event,\''+msg.id+'\')">😄</button>';
+        var emojiPickerHtml = '<div class="emoji-picker" id="ep-'+msg.id+'">'
+          + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
+              return '<button class="ep-btn" onclick="addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
+            }).join('')
+          + '</div>';
+        var reactionsHtml = '<div class="reactions" id="reactions-'+msg.id+'"></div>';
+
         if (isOwn) {
-          row.innerHTML = '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble mine">'+escHtml(msg.text)+'</div><div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
+          row.innerHTML = emojiPickerHtml + reactBtnHtml +
+            '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
+            '<div class="bubble mine">'+escHtml(msg.text)+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
             (showHeader?'<div class="avatar" style="background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+initials(msg.name)+'</div>':
             '<div class="avatar-placeholder"></div>');
         } else {
           row.innerHTML = (showHeader?'<div class="avatar" style="background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+initials(msg.name)+'</div>':
             '<div class="avatar-placeholder"></div>')+
+            emojiPickerHtml + reactBtnHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble theirs">'+escHtml(msg.text)+'</div><div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
+            '<div class="bubble theirs">'+escHtml(msg.text)+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
         }
         container.appendChild(row);
+        renderReactions(msg.id, msg.reactions||{});
         prevUserId = msg.userId;
       });
       lastUserId = prevUserId;
@@ -370,6 +405,44 @@
   function clearTypingStatus() {
     isTyping=false; setTypingStatus(false); clearTimeout(typingTimeout);
   }
+  function renderReactions(msgId, reactions) {
+    var el = document.getElementById("reactions-"+msgId);
+    if (!el) return;
+    var counts = {};
+    Object.keys(reactions).forEach(function(uid) {
+      var em = reactions[uid];
+      if (!counts[em]) counts[em] = [];
+      counts[em].push(uid);
+    });
+    el.innerHTML = Object.keys(counts).map(function(em) {
+      var uids = counts[em];
+      var mine = uids.indexOf(myId) > -1;
+      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="addReaction(\''+msgId+'\',\''+em+'\')">'+em+' <span class="rc">'+uids.length+'</span></span>';
+    }).join("");
+  }
+
+  function openEmojiPicker(e, msgId) {
+    e.stopPropagation();
+    document.querySelectorAll(".emoji-picker.open").forEach(function(el) {
+      if (el.id !== "ep-"+msgId) el.classList.remove("open");
+    });
+    var ep = document.getElementById("ep-"+msgId);
+    if (ep) ep.classList.toggle("open");
+  }
+
+  function addReaction(msgId, emoji) {
+    document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
+    var ref = db.ref("messages/"+myRoom+"/"+msgId+"/reactions/"+myId);
+    ref.once("value", function(snap) {
+      if (snap.val() === emoji) ref.remove();
+      else ref.set(emoji);
+    });
+  }
+
+  document.addEventListener("click", function() {
+    document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
+  });
+
   function scrollBottom() {
     var el = document.getElementById("messages");
     requestAnimationFrame(function(){ el.scrollTop=el.scrollHeight; });
