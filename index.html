@@ -122,6 +122,22 @@
     <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Entrar</button>
   </div>
   <div class="auth-toggle" id="auth-toggle">Não tem conta? <a onclick="toggleMode()">Criar conta</a></div>
+  <button id="forgot-btn" onclick="openForgot()" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:var(--mono);cursor:pointer;padding:0;margin-top:-8px">Esqueci minha senha</button>
+</div>
+
+<!-- MODAL RECUPERAR SENHA -->
+<div id="forgot-backdrop" style="display:none;position:fixed;inset:0;background:#0008;z-index:50;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:340px;display:flex;flex-direction:column;gap:14px">
+    <div style="font-size:17px;font-weight:800">🔒 Recuperar senha</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.6">Digite seu e-mail e enviaremos um link para redefinir sua senha.</div>
+    <div class="error-msg" id="forgot-error"></div>
+    <div id="forgot-success" style="display:none;background:#34d39920;border:1.5px solid #34d39940;border-radius:10px;padding:10px 14px;font-size:13px;color:var(--green)"></div>
+    <input class="input-field" id="forgot-email" type="email" placeholder="seu@email.com"/>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeForgot()" style="flex:1;padding:10px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--surface2);color:var(--muted)">Cancelar</button>
+      <button onclick="sendReset()" style="flex:1;padding:10px;border-radius:10px;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;border:none;background:var(--accent);color:#fff">Enviar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ROOM SCREEN -->
@@ -204,6 +220,26 @@
   function show(id) { document.getElementById(id).style.display="flex"; }
   function hide(id) { document.getElementById(id).style.display="none"; }
 
+  function openForgot() {
+    document.getElementById("forgot-error").style.display="none";
+    document.getElementById("forgot-success").style.display="none";
+    document.getElementById("forgot-email").value="";
+    document.getElementById("forgot-backdrop").style.display="flex";
+  }
+  function closeForgot() {
+    document.getElementById("forgot-backdrop").style.display="none";
+  }
+  function sendReset() {
+    var email = document.getElementById("forgot-email").value.trim();
+    var errEl = document.getElementById("forgot-error");
+    var okEl  = document.getElementById("forgot-success");
+    errEl.style.display="none"; okEl.style.display="none";
+    if (!email) { errEl.textContent="Digite seu e-mail."; errEl.style.display="block"; return; }
+    auth.sendPasswordResetEmail(email)
+      .then(function() { okEl.textContent="E-mail enviado! Verifique sua caixa de entrada."; okEl.style.display="block"; })
+      .catch(function(e) { errEl.textContent=e.message; errEl.style.display="block"; });
+  }
+
   var isRegisterMode = false;
 
   function toggleMode() {
@@ -216,11 +252,13 @@
       document.getElementById("auth-sub").textContent="Crie sua conta gratuita.";
       document.getElementById("auth-btn").textContent="Criar conta";
       document.getElementById("auth-toggle").innerHTML='Já tem conta? <a onclick="toggleMode()">Entrar</a>';
+      document.getElementById("forgot-btn").style.display="none";
     } else {
       nameInput.style.display="none"; labelName.style.display="none";
       document.getElementById("auth-sub").textContent="Entre na sua conta para continuar.";
       document.getElementById("auth-btn").textContent="Entrar";
       document.getElementById("auth-toggle").innerHTML='Não tem conta? <a onclick="toggleMode()">Criar conta</a>';
+      document.getElementById("forgot-btn").style.display="block";
     }
   }
 
