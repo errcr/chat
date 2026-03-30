@@ -105,7 +105,7 @@
       .chat-header h1 { font-size:14px; }
       .chat-header .room { font-size:10px; max-width:70px; }
       .header-right { gap:4px; }
-      .online-badge span { display:none; }
+      .online-badge span { font-size:11px; }
       .leave-txt { display:none; }
       .leave-icon { display:inline !important; }
       .leave-btn { font-size:16px; padding:4px 8px; }
@@ -215,11 +215,6 @@
 <!-- ROOM SCREEN -->
 <div id="room-screen">
   <div class="logo">💬</div>
-  <div class="emoji-avatar-wrap">
-    <div class="emoji-avatar-display" id="emoji-av-display" onclick="toggleEmojiAvPicker()" title="Escolher avatar">😀</div>
-    <span class="emoji-avatar-hint">clique para escolher seu avatar</span>
-    <div class="emoji-avatar-picker" id="emoji-av-picker"></div>
-  </div>
   <div class="user-greeting">
     <div class="name" id="greeting-name"></div>
     <div class="email" id="greeting-email"></div>
@@ -247,7 +242,10 @@
 <!-- CHAT APP -->
 <div id="chat-app">
   <div class="chat-header">
-    <div class="logo-sm">💬</div>
+    <div style="position:relative;flex-shrink:0">
+      <div id="header-av" onclick="toggleEmojiAvPicker()" title="Mudar avatar" style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#a78bfa);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:opacity .2s">💬</div>
+      <div class="emoji-avatar-picker" id="emoji-av-picker" style="position:absolute;top:44px;left:0;z-index:50;max-width:240px"></div>
+    </div>
     <div>
       <h1>Secret Chat</h1>
       <div class="room" id="room-label"></div>
@@ -431,19 +429,33 @@
 
   function selectEmojiAv(emoji) {
     myEmoji = emoji;
-    document.getElementById("emoji-av-display").textContent = emoji;
+    var av = document.getElementById("header-av");
+    if (av) { av.textContent = emoji; av.style.background = "var(--surface2)"; av.style.border = "2px solid var(--border)"; }
     document.getElementById("emoji-av-picker").classList.remove("open");
     if (myId) {
       localStorage.setItem("emoji_av_"+myId, emoji);
       db.ref("users/"+myId+"/emoji").set(emoji);
+      if (myRoom) db.ref("presence/"+myRoom+"/"+myId+"/emoji").set(emoji);
     }
+    var chip = document.getElementById("my-chip-avatar");
+    if (chip) chip.textContent = emoji;
   }
 
   function loadEmojiAv(uid) {
     var stored = localStorage.getItem("emoji_av_"+uid);
-    if (stored) { myEmoji = stored; document.getElementById("emoji-av-display").textContent = stored; return; }
+    if (stored) {
+      myEmoji = stored;
+      var av = document.getElementById("header-av");
+      if (av) { av.textContent = stored; av.style.background = "var(--surface2)"; av.style.border = "2px solid var(--border)"; }
+      return;
+    }
     db.ref("users/"+uid+"/emoji").once("value", function(snap) {
-      if (snap.val()) { myEmoji = snap.val(); document.getElementById("emoji-av-display").textContent = snap.val(); localStorage.setItem("emoji_av_"+uid, snap.val()); }
+      if (snap.val()) {
+        myEmoji = snap.val();
+        var av = document.getElementById("header-av");
+        if (av) { av.textContent = snap.val(); av.style.background = "var(--surface2)"; av.style.border = "2px solid var(--border)"; }
+        localStorage.setItem("emoji_av_"+uid, snap.val());
+      }
     });
   }
 
