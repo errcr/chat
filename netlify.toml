@@ -1,9 +1,14 @@
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+
 [[headers]]
-  for = "/*.html"
+  for = "/index.html"
   [headers.values]
     Content-Type = "text/html; charset=UTF-8"
 
 [[headers]]
-  for = "/*"
+  for = "/admin.html"
   [headers.values]
-    X-Content-Type-Options = "nosniff"
+    Content-Type = "text/html; charset=UTF-8"
