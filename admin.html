@@ -457,7 +457,6 @@
             <th>Usuário</th>
             <th>Status</th>
             <th>Sala atual</th>
-            <th>Ação</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
@@ -701,7 +700,6 @@
         </td>
         <td>${statusHtml}</td>
         <td>${roomHtml}</td>
-        <td><button onclick="banUser('${uid}','${escHtml(info.name)}')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer">🚫 Banir</button></td>
       </tr>`;
     }).join("");
   }
@@ -769,7 +767,6 @@
                 <div class="msg-header">
                   <span class="msg-author" style="color:${color}">${escHtml(msg.name)}</span>
                   <span class="msg-ts">${fmtTime(msg.ts)}</span>
-                  <button onclick="deleteAdminMsg('${room}','${msg.id}')" style="background:#f8717120;border:1px solid #f8717140;border-radius:6px;color:#f87171;font-size:11px;padding:2px 8px;cursor:pointer;margin-left:auto">🗑️ Apagar</button>
                 </div>
                 <div class="msg-text">${escHtml(msg.text)}</div>
               </div>
@@ -784,21 +781,6 @@
   };
 
   // ── Online tab ──
-  function deleteAdminMsg(room, msgId) {
-    if (!confirm("Apagar esta mensagem?")) return;
-    db.ref("messages/" + room + "/" + msgId).remove();
-  }
-
-  function banUser(uid, name) {
-    if (!confirm("Banir " + name + "? O usuário será bloqueado.")) return;
-    db.ref("banned/" + uid).set({ name: name, bannedAt: Date.now(), by: "admin" });
-    // Remove from presence
-    Object.keys(presenceData).forEach(room => {
-      if (presenceData[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
-    });
-    alert(name + " foi banido com sucesso.");
-  }
-
   function renderOnlineTab() {
     const grid = document.getElementById("online-grid");
     const entries = Object.entries(usersFromPresence);
