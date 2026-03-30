@@ -434,7 +434,7 @@
     return '<div class="avatar" style="width:'+s+'px;height:'+s+'px;background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+initials(name)+'</div>';
   }
 
-  var isDark = localStorage.getItem("theme") !== "light";
+  var isDark = localStorage.getItem("theme") === "dark";
   function applyTheme() {
     document.body.classList.toggle("light", !isDark);
     var btn = document.getElementById("theme-btn");
