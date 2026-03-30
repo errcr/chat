@@ -549,9 +549,18 @@
     } catch(e) {}
   }
   var lastNotifTs = 0;
+  var swRegistration = null;
+
+  // Registra Service Worker
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").then(function(reg) {
+      swRegistration = reg;
+    }).catch(function(e) { console.log("SW error:", e); });
+  }
 
   function requestNotifPermission() {
-    if ("Notification" in window && Notification.permission === "default") {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
       Notification.requestPermission();
     }
   }
@@ -559,15 +568,20 @@
   function sendPushNotif(name, text) {
     if (!("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
-    if (!document.hidden) return; // só manda se o app estiver minimizado
+    if (!document.hidden) return;
     try {
-      new Notification("💬 " + name, {
-        body: text,
-        icon: "/icon-192.png",
-        badge: "/icon-192.png",
-        tag: "secret-chat-msg",
-        renotify: true
-      });
+      if (swRegistration && swRegistration.showNotification) {
+        swRegistration.showNotification("💬 " + name, {
+          body: text,
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: "secret-chat-msg",
+          renotify: true,
+          vibrate: [200, 100, 200]
+        });
+      } else {
+        new Notification("💬 " + name, { body: text, icon: "/icon-192.png" });
+      }
     } catch(e) {}
   }
 
