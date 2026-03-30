@@ -236,7 +236,7 @@
     errEl.style.display="none"; okEl.style.display="none";
     if (!email) { errEl.textContent="Digite seu e-mail."; errEl.style.display="block"; return; }
     auth.sendPasswordResetEmail(email)
-      .then(function() { okEl.textContent="E-mail enviado! Verifique sua caixa de entrada."; okEl.style.display="block"; })
+      .then(function() { okEl.textContent="E-mail enviado! Verifique sua caixa de entrada e também a pasta de spam."; okEl.style.display="block"; })
       .catch(function(e) { errEl.textContent=e.message; errEl.style.display="block"; });
   }
 
