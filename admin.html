@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ChatSpace — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0e17;
+      --surface: #1a1826;
+      --surface2: #222033;
+      --border: #2e2b45;
+      --accent: #7c6af7;
+      --accent2: #a78bfa;
+      --text: #e8e6f4;
+      --muted: #6b6880;
+      --green: #34d399;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --font: 'Nunito', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── LOGIN ── */
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 24px;
+      padding: 24px;
+      animation: fadeUp 0.4s ease;
+    }
+    .logo {
+      width: 64px; height: 64px; border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; box-shadow: 0 8px 32px #7c6af740;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .login-card h2 { font-size: 20px; font-weight: 800; }
+    .login-card p  { font-size: 13px; color: var(--muted); }
+
+    .input-label {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .input-field {
+      width: 100%; padding: 12px 14px;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 10px; color: var(--text);
+      font-family: var(--font); font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    .input-field:focus { outline: none; border-color: var(--accent); }
+    .input-field::placeholder { color: var(--muted); }
+
+    .btn-primary {
+      width: 100%; padding: 12px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      border: none; border-radius: 10px;
+      color: #fff; font-family: var(--font);
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 4px 20px #7c6af740;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    .error-msg {
+      background: #f8717118; border: 1px solid #f8717140;
+      border-radius: 8px; padding: 10px 12px;
+      font-size: 13px; color: var(--red); display: none;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff; border-radius: 50%;
+      animation: spin 0.6s linear infinite; margin: 0 auto;
+    }
+
+    /* ── ADMIN PANEL ── */
+    #admin-panel { display: none; flex-direction: column; min-height: 100vh; }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex; align-items: center; gap: 14px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .topbar .logo-sm {
+      width: 34px; height: 34px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .topbar h1 { font-size: 15px; font-weight: 800; }
+    .topbar .badge {
+      background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 800; font-family: var(--mono);
+      padding: 2px 8px; border-radius: 20px; text-transform: uppercase;
+    }
+    .topbar-right {
+      margin-left: auto; display: flex; align-items: center; gap: 12px;
+    }
+    .admin-info { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+    .logout-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 12px; font-family: var(--mono);
+      padding: 5px 12px; cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .logout-btn:hover { color: var(--red); border-color: var(--red); }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 4px;
+      padding: 16px 24px 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .tab {
+      padding: 10px 18px; font-size: 13px; font-weight: 700;
+      border-radius: 10px 10px 0 0; cursor: pointer;
+      color: var(--muted); border: 1px solid transparent;
+      border-bottom: none; transition: color 0.2s, background 0.2s;
+      font-family: var(--font);
+      background: none;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      color: var(--text); background: var(--bg);
+      border-color: var(--border);
+    }
+
+    /* Content */
+    .content { padding: 24px; flex: 1; }
+
+    .section-title {
+      font-size: 18px; font-weight: 800; margin-bottom: 6px;
+    }
+    .section-sub {
+      font-size: 13px; color: var(--muted); margin-bottom: 20px;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px; margin-bottom: 24px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px 18px;
+    }
+    .stat-card .stat-label {
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      font-family: var(--mono); text-transform: uppercase; margin-bottom: 6px;
+    }
+    .stat-card .stat-value {
+      font-size: 28px; font-weight: 800;
+    }
+    .stat-card .stat-value.green { color: var(--green); }
+    .stat-card .stat-value.purple { color: var(--accent2); }
+    .stat-card .stat-value.yellow { color: var(--yellow); }
+
+    /* Table */
+    .table-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    thead th {
+      padding: 12px 16px; text-align: left;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 13px 16px; font-size: 13.5px; }
+
+    .user-row-name {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; font-family: var(--mono);
+      flex-shrink: 0;
+    }
+    .user-name  { font-weight: 700; }
+    .user-email { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+    .online-dot {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--green); font-family: var(--mono);
+    }
+    .online-dot .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s infinite;
+    }
+    .offline-dot {
+      font-size: 12px; color: var(--muted); font-family: var(--mono);
+    }
+
+    .tag {
+      display: inline-block; padding: 2px 10px;
+      border-radius: 20px; font-size: 11px; font-weight: 700;
+      font-family: var(--mono);
+    }
+    .tag-room {
+      background: var(--accent)22; color: var(--accent2);
+      border: 1px solid var(--accent)44;
+    }
+
+    /* Rooms sidebar + messages */
+    .rooms-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 16px;
+    }
+    .rooms-list {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+    }
+    .rooms-list-header {
+      padding: 12px 16px;
+      font-size: 11px; font-weight: 700; color: var(--muted);
+      font-family: var(--mono); text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .room-item {
+      padding: 12px 16px; cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .room-item:last-child { border-bottom: none; }
+    .room-item:hover { background: var(--surface2); }
+    .room-item.active { background: var(--accent)18; }
+    .room-item .room-name {
+      font-size: 13px; font-weight: 700; font-family: var(--mono);
+    }
+    .room-item .room-name.active { color: var(--accent2); }
+    .room-count {
+      font-size: 11px; color: var(--muted); font-family: var(--mono);
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 1px 8px;
+    }
+
+    .messages-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .messages-panel-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .messages-panel-header .room-tag {
+      font-size: 15px; font-weight: 800; font-family: var(--mono); color: var(--accent2);
+    }
+    .messages-panel-header .msg-count {
+      font-size: 12px; color: var(--muted); font-family: var(--mono);
+    }
+    .messages-list {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 10px;
+      max-height: 500px;
+    }
+    .messages-list::-webkit-scrollbar { width: 4px; }
+    .messages-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .admin-msg {
+      display: flex; gap: 10px; align-items: flex-start;
+      animation: fadeUp 0.15s ease;
+    }
+    .admin-msg .av {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; font-family: var(--mono);
+      flex-shrink: 0;
+    }
+    .admin-msg .msg-content { flex: 1; }
+    .admin-msg .msg-header {
+      display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px;
+    }
+    .admin-msg .msg-author {
+      font-size: 12px; font-weight: 800; font-family: var(--mono);
+    }
+    .admin-msg .msg-ts {
+      font-size: 11px; color: var(--muted); font-family: var(--mono);
+    }
+    .admin-msg .msg-text {
+      font-size: 13.5px; line-height: 1.5;
+      background: var(--surface2); border-radius: 4px 12px 12px 12px;
+      padding: 8px 12px; display: inline-block;
+      max-width: 100%; word-break: break-word;
+    }
+
+    .empty-panel {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 8px; color: var(--muted);
+      font-family: var(--mono); font-size: 13px; text-align: center;
+      padding: 40px;
+    }
+    .empty-panel .icon { font-size: 32px; }
+
+    /* Online tab */
+    .online-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .online-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px;
+      display: flex; align-items: center; gap: 12px;
+      animation: fadeUp 0.2s ease;
+    }
+    .online-card .av {
+      width: 42px; height: 42px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 800; font-family: var(--mono);
+      flex-shrink: 0;
+    }
+    .online-card .info .name { font-size: 14px; font-weight: 800; }
+    .online-card .info .room {
+      font-size: 12px; color: var(--accent2); font-family: var(--mono); margin-top: 2px;
+    }
+
+    .no-online {
+      text-align: center; color: var(--muted);
+      font-family: var(--mono); font-size: 13px; padding: 48px;
+    }
+    .no-online .icon { font-size: 32px; display: block; margin-bottom: 10px; }
+
+    /* Loading */
+    .loading {
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px; gap: 10px; color: var(--muted);
+      font-family: var(--mono); font-size: 13px;
+    }
+    .loading .sp {
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @media (max-width: 640px) {
+      .rooms-layout { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .topbar { padding: 12px 16px; }
+      .content { padding: 16px; }
+      .tabs { padding: 12px 16px 0; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="logo">🛡️</div>
+  <div class="login-card">
+    <h2>Painel Admin</h2>
+    <p>Acesso restrito. Entre com a conta de administrador.</p>
+    <div class="error-msg" id="error-msg"></div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span class="input-label">E-mail</span>
+      <input class="input-field" id="email-input" type="email" placeholder="admin@email.com" />
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span class="input-label">Senha</span>
+      <input class="input-field" id="password-input" type="password" placeholder="••••••••" />
+    </div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="admin-panel">
+  <div class="topbar">
+    <div class="logo-sm">🛡️</div>
+    <h1>ChatSpace</h1>
+    <span class="badge">Admin</span>
+    <div class="topbar-right">
+      <span class="admin-info" id="admin-email-label"></span>
+      <button class="logout-btn" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('users')"    id="tab-users">👥 Usuários</button>
+    <button class="tab"        onclick="switchTab('messages')" id="tab-messages">💬 Conversas</button>
+    <button class="tab"        onclick="switchTab('online')"   id="tab-online">🟢 Online agora</button>
+  </div>
+
+  <!-- USERS TAB -->
+  <div class="content" id="pane-users">
+    <div class="section-title">Usuários cadastrados</div>
+    <div class="section-sub">Todos os usuários registrados no ChatSpace.</div>
+
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total de usuários</div>
+        <div class="stat-value purple" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Online agora</div>
+        <div class="stat-value green" id="stat-online">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Salas ativas</div>
+        <div class="stat-value yellow" id="stat-rooms">—</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Usuário</th>
+            <th>Status</th>
+            <th>Sala atual</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr><td colspan="3"><div class="loading"><div class="sp"></div> Carregando...</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MESSAGES TAB -->
+  <div class="content" id="pane-messages" style="display:none">
+    <div class="section-title">Conversas por sala</div>
+    <div class="section-sub">Selecione uma sala para ver as mensagens em tempo real.</div>
+    <div class="rooms-layout">
+      <div class="rooms-list">
+        <div class="rooms-list-header">Salas</div>
+        <div id="rooms-list-body">
+          <div class="loading"><div class="sp"></div></div>
+        </div>
+      </div>
+      <div class="messages-panel" id="messages-panel">
+        <div class="empty-panel">
+          <div class="icon">💬</div>
+          <div>Selecione uma sala ao lado</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ONLINE TAB -->
+  <div class="content" id="pane-online" style="display:none">
+    <div class="section-title">Usuários online agora</div>
+    <div class="section-sub">Atualizado em tempo real.</div>
+    <div id="online-grid" class="online-grid">
+      <div class="loading"><div class="sp"></div> Carregando...</div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import {
+    getDatabase, ref, onValue, off
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  const ADMIN_EMAIL = "pericles.sql@gmail.com";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
+    authDomain: "chat-d61cc.firebaseapp.com",
+    databaseURL: "https://chat-d61cc-default-rtdb.firebaseio.com",
+    projectId: "chat-d61cc",
+    storageBucket: "chat-d61cc.firebasestorage.app",
+    messagingSenderId: "726411546652",
+    appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
+  };
+
+  const app  = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db   = getDatabase(app);
+
+  // ── Helpers ──
+  const COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
+  function colorFor(name) {
+    let h = 0;
+    for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+    return COLORS[Math.abs(h) % COLORS.length];
+  }
+  function initials(name) { return (name || "?").slice(0,2).toUpperCase(); }
+  function fmtTime(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString("pt-BR") + " " +
+           d.getHours().toString().padStart(2,"0") + ":" +
+           d.getMinutes().toString().padStart(2,"0");
+  }
+  function escHtml(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+  function show(id) { document.getElementById(id).style.display = "flex"; }
+  function hide(id) { document.getElementById(id).style.display = "none"; }
+
+  // ── Login ──
+  window.doLogin = async function() {
+    const email = document.getElementById("email-input").value.trim();
+    const pass  = document.getElementById("password-input").value;
+    const btn   = document.getElementById("login-btn");
+    const err   = document.getElementById("error-msg");
+    err.style.display = "none";
+
+    if (email !== ADMIN_EMAIL) {
+      err.textContent = "Acesso negado. Apenas administradores.";
+      err.style.display = "block"; return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>';
+
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch(e) {
+      btn.disabled = false; btn.textContent = "Entrar";
+      err.textContent = "E-mail ou senha incorretos.";
+      err.style.display = "block";
+    }
+  };
+
+  window.doLogout = () => signOut(auth);
+
+  document.getElementById("password-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") window.doLogin();
+  });
+
+  // ── Auth state ──
+  onAuthStateChanged(auth, user => {
+    if (user && user.email === ADMIN_EMAIL) {
+      document.getElementById("login-screen").style.display = "none";
+      document.getElementById("admin-panel").style.display  = "flex";
+      document.getElementById("admin-email-label").textContent = user.email;
+      initAdmin();
+    } else {
+      document.getElementById("login-screen").style.display = "flex";
+      document.getElementById("admin-panel").style.display  = "none";
+      const btn = document.getElementById("login-btn");
+      btn.disabled = false; btn.textContent = "Entrar";
+    }
+  });
+
+  // ── Tabs ──
+  window.switchTab = function(tab) {
+    ["users","messages","online"].forEach(t => {
+      document.getElementById("pane-" + t).style.display = t === tab ? "block" : "none";
+      document.getElementById("tab-"  + t).classList.toggle("active", t === tab);
+    });
+  };
+
+  // ── Data listeners ──
+  let presenceData = {}; // roomName -> { uid -> {name, online} }
+  let usersFromPresence = {}; // uid -> { name, rooms[] }
+  let allRooms = [];
+  let activeRoomListener = null;
+  let activeRoomRef = null;
+  let selectedRoom = null;
+
+  function initAdmin() {
+    listenPresence();
+    listenRooms();
+  }
+
+  // Listen to ALL presence nodes to know who is online
+  function listenPresence() {
+    const presRef = ref(db, "presence");
+    onValue(presRef, snap => {
+      presenceData = snap.exists() ? snap.val() : {};
+
+      // Build user->rooms map
+      usersFromPresence = {};
+      Object.entries(presenceData).forEach(([room, users]) => {
+        Object.entries(users).forEach(([uid, info]) => {
+          if (!usersFromPresence[uid]) usersFromPresence[uid] = { name: info.name, rooms: [] };
+          usersFromPresence[uid].rooms.push(room);
+        });
+      });
+
+      const onlineCount = Object.keys(usersFromPresence).length;
+      document.getElementById("stat-online").textContent = onlineCount;
+
+      renderOnlineTab();
+      refreshUsersTable();
+    });
+  }
+
+  // Listen to all messages nodes to discover rooms
+  function listenRooms() {
+    const msgRef = ref(db, "messages");
+    onValue(msgRef, snap => {
+      allRooms = snap.exists() ? Object.keys(snap.val()) : [];
+      document.getElementById("stat-rooms").textContent = allRooms.length;
+
+      // Count total unique users across messages
+      let userSet = new Set();
+      if (snap.exists()) {
+        Object.values(snap.val()).forEach(room => {
+          Object.values(room).forEach(msg => { if (msg.userId) userSet.add(msg.userId); });
+        });
+      }
+      document.getElementById("stat-total").textContent = userSet.size;
+
+      renderRoomsList();
+      refreshUsersTable(snap.exists() ? snap.val() : {});
+    });
+  }
+
+  // ── Users table ──
+  let allMessagesData = {};
+  function refreshUsersTable(msgData) {
+    if (msgData) allMessagesData = msgData;
+
+    // Build uid -> { name, msgCount } from messages
+    const usersMap = {};
+    Object.entries(allMessagesData).forEach(([room, msgs]) => {
+      Object.values(msgs).forEach(msg => {
+        if (!msg.userId) return;
+        if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, msgCount: 0 };
+        usersMap[msg.userId].msgCount++;
+      });
+    });
+
+    // Merge with presence
+    Object.entries(usersFromPresence).forEach(([uid, info]) => {
+      if (!usersMap[uid]) usersMap[uid] = { name: info.name, msgCount: 0 };
+    });
+
+    const tbody = document.getElementById("users-tbody");
+    if (Object.keys(usersMap).length === 0) {
+      tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = Object.entries(usersMap).map(([uid, info]) => {
+      const online    = !!usersFromPresence[uid];
+      const rooms     = usersFromPresence[uid]?.rooms || [];
+      const color     = colorFor(info.name);
+      const statusHtml = online
+        ? `<span class="online-dot"><span class="dot"></span> online</span>`
+        : `<span class="offline-dot">offline</span>`;
+      const roomHtml = rooms.length
+        ? rooms.map(r => `<span class="tag tag-room">#${escHtml(r)}</span>`).join(" ")
+        : `<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>`;
+
+      return `<tr>
+        <td>
+          <div class="user-row-name">
+            <div class="user-avatar" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(info.name)}</div>
+            <div>
+              <div class="user-name">${escHtml(info.name)}</div>
+            </div>
+          </div>
+        </td>
+        <td>${statusHtml}</td>
+        <td>${roomHtml}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ── Rooms list ──
+  function renderRoomsList() {
+    const body = document.getElementById("rooms-list-body");
+    if (allRooms.length === 0) {
+      body.innerHTML = `<div style="padding:16px;color:var(--muted);font-size:13px;font-family:var(--mono)">Nenhuma sala.</div>`;
+      return;
+    }
+
+    // Count messages per room
+    const counts = {};
+    Object.entries(allMessagesData).forEach(([room, msgs]) => {
+      counts[room] = Object.keys(msgs).length;
+    });
+
+    body.innerHTML = allRooms.map(room => {
+      const active = room === selectedRoom;
+      return `<div class="room-item ${active ? "active" : ""}" onclick="selectRoom('${room}')">
+        <span class="room-name ${active ? "active" : ""}">#${escHtml(room)}</span>
+        <span class="room-count">${counts[room] || 0}</span>
+      </div>`;
+    }).join("");
+  }
+
+  // ── Select room ──
+  window.selectRoom = function(room) {
+    selectedRoom = room;
+    renderRoomsList();
+
+    // Cleanup previous listener
+    if (activeRoomRef) { off(activeRoomRef); activeRoomRef = null; }
+
+    const panel = document.getElementById("messages-panel");
+    panel.innerHTML = `<div class="messages-panel-header">
+      <span class="room-tag">#${escHtml(room)}</span>
+      <span class="msg-count">carregando...</span>
+    </div><div class="loading"><div class="sp"></div> Carregando mensagens...</div>`;
+
+    activeRoomRef = ref(db, `messages/${room}`);
+    onValue(activeRoomRef, snap => {
+      if (!snap.exists()) {
+        panel.innerHTML = `<div class="messages-panel-header"><span class="room-tag">#${escHtml(room)}</span></div>
+          <div class="empty-panel"><div class="icon">🛸</div><div>Nenhuma mensagem ainda.</div></div>`;
+        return;
+      }
+
+      const msgs = Object.entries(snap.val())
+        .map(([k,v]) => ({id:k,...v}))
+        .sort((a,b) => a.ts - b.ts);
+
+      panel.innerHTML = `
+        <div class="messages-panel-header">
+          <span class="room-tag">#${escHtml(room)}</span>
+          <span class="msg-count">${msgs.length} mensagem${msgs.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div class="messages-list" id="msg-list">
+          ${msgs.map(msg => {
+            const color = colorFor(msg.name);
+            return `<div class="admin-msg">
+              <div class="av" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(msg.name)}</div>
+              <div class="msg-content">
+                <div class="msg-header">
+                  <span class="msg-author" style="color:${color}">${escHtml(msg.name)}</span>
+                  <span class="msg-ts">${fmtTime(msg.ts)}</span>
+                </div>
+                <div class="msg-text">${escHtml(msg.text)}</div>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>`;
+
+      // scroll to bottom
+      const list = document.getElementById("msg-list");
+      if (list) requestAnimationFrame(() => list.scrollTop = list.scrollHeight);
+    });
+  };
+
+  // ── Online tab ──
+  function renderOnlineTab() {
+    const grid = document.getElementById("online-grid");
+    const entries = Object.entries(usersFromPresence);
+
+    if (entries.length === 0) {
+      grid.innerHTML = `<div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.</div>`;
+      return;
+    }
+
+    grid.innerHTML = entries.map(([uid, info]) => {
+      const color = colorFor(info.name);
+      const rooms = info.rooms.join(", #");
+      return `<div class="online-card">
+        <div class="av" style="background:${color}22;border:2px solid ${color}44;color:${color}">${initials(info.name)}</div>
+        <div class="info">
+          <div class="name">${escHtml(info.name)}</div>
+          <div class="room">#${escHtml(rooms)}</div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+</script>
+</body>
+</html>
