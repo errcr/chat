@@ -550,6 +550,22 @@
     } catch(e) {}
   }
   var lastNotifTs = 0;
+  var unreadCount = 0;
+
+  function incrementUnread() {
+    if (!document.hidden) return; // só conta se aba estiver minimizada
+    unreadCount++;
+    document.title = "(" + unreadCount + ") Secret Chat";
+  }
+
+  function resetUnread() {
+    unreadCount = 0;
+    document.title = "Secret Chat";
+  }
+
+  document.addEventListener("visibilitychange", function() {
+    if (!document.hidden) resetUnread();
+  });
   var swRegistration = null;
 
   // Registra Service Worker
@@ -776,6 +792,7 @@
     document.getElementById("room-pass-input").value = "";
     document.getElementById("members-panel").classList.remove("open");
     hideRoomPass();
+    resetUnread();
   }
 
   function cleanupListeners() {
@@ -822,6 +839,7 @@
         if (msg.ts > lastNotifTs && msg.userId !== myId && msg.ts > Date.now() - 5000) {
           playNotif();
           sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
+          incrementUnread();
           lastNotifTs = msg.ts;
         }
         var isOwn      = msg.userId===myId;
