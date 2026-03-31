@@ -58,10 +58,19 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     @keyframes spin { to { transform:rotate(360deg); } }
     .spinner { width:20px; height:20px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; margin:0 auto; }
-    #room-screen { display:none; flex-direction:column; align-items:center; gap:24px; width:100%; max-width:360px; padding:24px; animation:fadeUp .4s ease; }
-    .user-greeting { text-align:center; }
-    .user-greeting .name { font-size:18px; font-weight:800; }
-    .user-greeting .email { font-size:12px; color:var(--muted); font-family:var(--mono); }
+    #room-screen { display:none; flex-direction:column; align-items:center; gap:20px; width:100%; max-width:380px; padding:36px 32px; animation:fadeUp .4s ease; position:relative; z-index:1; background:rgba(255,255,255,0.15); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,0.25); border-radius:24px; box-shadow:0 8px 40px rgba(0,0,0,.2); }
+    body.room-mode #auth-gradient { display:block; }
+    body.room-mode { background:transparent; }
+    .user-greeting .name { font-size:18px; font-weight:800; color:#fff; }
+    .user-greeting .email { font-size:12px; color:rgba(255,255,255,.65); font-family:var(--mono); }
+    body.room-mode .auth-sub { color:rgba(255,255,255,.75); }
+    body.room-mode .input-label { color:rgba(255,255,255,.7); }
+    body.room-mode .input-field { background:rgba(255,255,255,0.15); border-color:rgba(255,255,255,0.25); color:#fff; }
+    body.room-mode .input-field::placeholder { color:rgba(255,255,255,.5); }
+    body.room-mode .input-field:focus { border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.22); }
+    body.room-mode details summary { color:rgba(255,255,255,.7); }
+    body.room-mode #room-pass-saved { color:#a7f3d0; }
+    body.room-mode #room-pass-error { color:#fecaca; }
     #chat-app { display:none; width:100%; height:100vh; flex-direction:column; }
     .chat-header { padding:14px 20px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; overflow:hidden; }
     .chat-header h1 { font-size:16px; font-weight:800; white-space:nowrap; }
@@ -236,7 +245,7 @@
       <summary style="list-style:none;cursor:pointer;font-family:var(--mono)">🔐 Definir senha para esta sala</summary>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
         <input class="input-field" id="room-new-pass" type="password" placeholder="Nova senha (deixe vazio para remover)"/>
-        <button onclick="saveRoomPass()" style="padding:8px;border-radius:10px;background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Salvar senha</button>
+        <button onclick="saveRoomPass()" style="padding:8px;border-radius:10px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Salvar senha</button>
         <div id="room-pass-saved" style="display:none;font-size:12px;color:var(--green);font-family:var(--mono)">✓ Senha salva!</div>
       </div>
     </details>
@@ -339,10 +348,12 @@
   function show(id) {
     document.getElementById(id).style.display="flex";
     if (id === "auth-screen") document.body.classList.add("auth-mode");
+    if (id === "room-screen") document.body.classList.add("room-mode");
   }
   function hide(id) {
     document.getElementById(id).style.display="none";
     if (id === "auth-screen") document.body.classList.remove("auth-mode");
+    if (id === "room-screen") document.body.classList.remove("room-mode");
   }
 
   function openForgot() {
