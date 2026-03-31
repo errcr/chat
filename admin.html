@@ -458,6 +458,7 @@
             <th>Status</th>
             <th>Sala atual</th>
             <th>Mensagens</th>
+            <th>Ação</th>
           </tr>
         </thead>
         <tbody id="users-tbody">
@@ -686,7 +687,8 @@
         ? rooms.map(function(r) { return '<span class="tag tag-room">#' + escHtml(r) + '</span>'; }).join(" ")
         : '<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>';
       var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
-      return '<tr><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + escHtml(info.name) + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td></tr>';
+      var deleteBtn = '<button onclick="deleteUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">🗑️ Apagar</button>';
+      return '<tr><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + escHtml(info.name) + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + deleteBtn + '</td></tr>';
     }).join("");
   }
 
@@ -710,6 +712,32 @@
         '</div></div>';
     }).join("");
   }
+
+  window.deleteUser = function(uid, name) {
+    if (!confirm('Apagar todas as mensagens de ' + name + '? Esta ação não pode ser desfeita.')) return;
+    // Remove todas as mensagens do usuário em todas as salas
+    db.ref("messages").once("value", function(snap) {
+      if (!snap.exists()) return;
+      var updates = {};
+      Object.keys(snap.val()).forEach(function(room) {
+        Object.keys(snap.val()[room]).forEach(function(msgId) {
+          if (snap.val()[room][msgId].userId === uid) {
+            updates["messages/" + room + "/" + msgId] = null;
+          }
+        });
+      });
+      db.ref().update(updates).then(function() {
+        alert("Mensagens de " + name + " apagadas com sucesso.");
+      });
+    });
+    // Remove presença
+    db.ref("presence").once("value", function(snap) {
+      if (!snap.exists()) return;
+      Object.keys(snap.val()).forEach(function(room) {
+        if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
+      });
+    });
+  };
 
   window.deleteRoom = function(room) {
     if (!confirm('Apagar a sala #' + room + ' e todas as suas mensagens? Esta ação não pode ser desfeita.')) return;
