@@ -535,18 +535,36 @@
 
   // ── Notificação sonora ──
   var audioCtx = null;
+  var audioUnlocked = false;
+
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var buf = audioCtx.createBuffer(1, 1, 22050);
+      var src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(audioCtx.destination);
+      src.start(0);
+      audioUnlocked = true;
+    } catch(e) {}
+  }
+
   function playNotif() {
     try {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      var osc = audioCtx.createOscillator();
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      var osc  = audioCtx.createOscillator();
       var gain = audioCtx.createGain();
       osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-      osc.frequency.setValueAtTime(660, audioCtx.currentTime + 0.08);
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(900, audioCtx.currentTime);
+      osc.frequency.setValueAtTime(680, audioCtx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
       osc.start(audioCtx.currentTime);
-      osc.stop(audioCtx.currentTime + 0.3);
+      osc.stop(audioCtx.currentTime + 0.35);
     } catch(e) {}
   }
   var lastNotifTs = 0;
@@ -979,6 +997,9 @@
   }
 
   document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("click",      unlockAudio, { once: true });
+    document.addEventListener("touchstart", unlockAudio, { once: true });
+    document.addEventListener("keydown",    unlockAudio, { once: true });
     var input   = document.getElementById("msg-input");
     var sendBtn = document.getElementById("send-btn");
     input.addEventListener("input", function() {
