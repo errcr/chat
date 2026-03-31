@@ -493,7 +493,7 @@
     <div class="section-title">Usuários online agora</div>
     <div class="section-sub">Atualizado em tempo real.</div>
     <div id="online-grid" class="online-grid">
-      <div class="loading"><div class="sp"></div> Carregando...</div>
+      <div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.</div>
     </div>
   </div>
 </div>
@@ -621,8 +621,10 @@
       Object.keys(presenceData).forEach(function(room) {
         Object.keys(presenceData[room]).forEach(function(uid) {
           var info = presenceData[room][uid];
+          if (!info || !info.name) return;
           if (!usersFromPresence[uid]) usersFromPresence[uid] = { name: info.name, rooms: [] };
-          usersFromPresence[uid].rooms.push(room);
+          if (usersFromPresence[uid].rooms.indexOf(room) === -1)
+            usersFromPresence[uid].rooms.push(room);
         });
       });
       document.getElementById("stat-online").textContent = Object.keys(usersFromPresence).length;
