@@ -595,6 +595,7 @@
   // ── Data ──
   var presenceData = {};
   var usersFromPresence = {};
+  var bannedUsers = {};
   var allRooms = [];
   var activeRoomRef = null;
   var selectedRoom = null;
@@ -603,6 +604,14 @@
   function initAdmin() {
     listenPresence();
     listenRooms();
+    listenBanned();
+  }
+
+  function listenBanned() {
+    db.ref("banned").on("value", function(snap) {
+      bannedUsers = snap.exists() ? snap.val() : {};
+      refreshUsersTable();
+    });
   }
 
   function listenPresence() {
@@ -687,8 +696,14 @@
         ? rooms.map(function(r) { return '<span class="tag tag-room">#' + escHtml(r) + '</span>'; }).join(" ")
         : '<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>';
       var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
-      var deleteBtn = '<button onclick="deleteUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">🗑️ Apagar</button>';
-      return '<tr><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + escHtml(info.name) + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + deleteBtn + '</td></tr>';
+      var isBanned = bannedUsers[uid];
+      var banBtn = isBanned
+        ? '<button onclick="unbanUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#34d39920;border:1px solid #34d39940;border-radius:8px;color:#34d399;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">✓ Desbanir</button>'
+        : '<button onclick="banUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">🚫 Banir</button>';
+      var nameDisplay = isBanned
+        ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
+        : escHtml(info.name);
+      return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '"><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + nameDisplay + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + banBtn + '</td></tr>';
     }).join("");
   }
 
@@ -713,30 +728,21 @@
     }).join("");
   }
 
-  window.deleteUser = function(uid, name) {
-    if (!confirm('Apagar todas as mensagens de ' + name + '? Esta ação não pode ser desfeita.')) return;
-    // Remove todas as mensagens do usuário em todas as salas
-    db.ref("messages").once("value", function(snap) {
-      if (!snap.exists()) return;
-      var updates = {};
-      Object.keys(snap.val()).forEach(function(room) {
-        Object.keys(snap.val()[room]).forEach(function(msgId) {
-          if (snap.val()[room][msgId].userId === uid) {
-            updates["messages/" + room + "/" + msgId] = null;
-          }
-        });
-      });
-      db.ref().update(updates).then(function() {
-        alert("Mensagens de " + name + " apagadas com sucesso.");
-      });
-    });
-    // Remove presença
+  window.banUser = function(uid, name) {
+    if (!confirm('Banir ' + name + '? O usuário será impedido de entrar no chat.')) return;
+    db.ref("banned/" + uid).set({ name: name, bannedAt: Date.now() });
+    // Remove da presença em todas as salas
     db.ref("presence").once("value", function(snap) {
       if (!snap.exists()) return;
       Object.keys(snap.val()).forEach(function(room) {
         if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
       });
     });
+  };
+
+  window.unbanUser = function(uid, name) {
+    if (!confirm('Desbanir ' + name + '?')) return;
+    db.ref("banned/" + uid).remove();
   };
 
   window.deleteRoom = function(room) {

@@ -640,11 +640,23 @@
 
   auth.onAuthStateChanged(function(user) {
     if (user) {
-      hide("auth-screen"); hide("chat-app"); show("room-screen");
-      document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
-      document.getElementById("greeting-email").textContent = user.email;
-      initEmojiAvPicker();
-      loadEmojiAv(user.uid);
+      // check if banned
+      db.ref("banned/" + user.uid).once("value", function(snap) {
+        if (snap.exists()) {
+          // banido — faz logout e mostra mensagem
+          auth.signOut();
+          show("auth-screen"); hide("room-screen"); hide("chat-app");
+          var err = document.getElementById("error-msg");
+          err.textContent = "Sua conta foi suspensa. Entre em contato com o administrador.";
+          err.style.display = "block";
+          return;
+        }
+        hide("auth-screen"); hide("chat-app"); show("room-screen");
+        document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
+        document.getElementById("greeting-email").textContent = user.email;
+        initEmojiAvPicker();
+        loadEmojiAv(user.uid);
+      });
     } else {
       show("auth-screen"); hide("room-screen"); hide("chat-app");
       var btn = document.getElementById("auth-btn");
