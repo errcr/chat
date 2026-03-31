@@ -609,33 +609,28 @@
   });
   var swRegistration = null;
   var ONESIGNAL_APP_ID = "e80c5f21-3e98-4bcf-b447-86e2d3309a76";
+  var ONESIGNAL_API_KEY = "os_v2_app_5agf6ij6tbf47nchq3rngme2o2jh5heqf2yeeeml3h5myz7l474w4cfctcmmbqkpal63532b7rchx6desfjvipeqfher26f3iocugpq";
 
   // Registra Service Worker
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js").then(function(reg) {
       swRegistration = reg;
-    }).catch(function(e) { console.log("SW error:", e); });
+    }).catch(function(e) {});
   }
 
   function requestNotifPermission() {
     if (!("Notification" in window)) return;
-    if (Notification.permission === "default") {
-      Notification.requestPermission();
-    }
+    if (Notification.permission === "default") Notification.requestPermission();
   }
 
   function sendPushNotif(name, text) {
-    // Notificação local (quando app está aberto)
+    // Notificação local (browser aberto em segundo plano)
     if (!document.hidden) return;
     try {
       if (swRegistration && swRegistration.showNotification) {
         swRegistration.showNotification("💬 " + name, {
-          body: text,
-          icon: "/icon-192.png",
-          badge: "/icon-192.png",
-          tag: "secret-chat-msg",
-          renotify: true,
-          vibrate: [200, 100, 200]
+          body: text, icon: "/icon-192.png", badge: "/icon-192.png",
+          tag: "secret-chat-msg", renotify: true, vibrate: [200, 100, 200]
         });
       } else if ("Notification" in window && Notification.permission === "granted") {
         new Notification("💬 " + name, { body: text, icon: "/icon-192.png" });
@@ -643,23 +638,18 @@
     } catch(e) {}
 
     // OneSignal push para app Android
-    sendOneSignalNotif(name, text);
-  }
-
-  function sendOneSignalNotif(name, text) {
     try {
       fetch("https://onesignal.com/api/v1/notifications", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": "Basic " + ONESIGNAL_API_KEY
         },
         body: JSON.stringify({
           app_id: ONESIGNAL_APP_ID,
           included_segments: ["All"],
           headings: { en: "💬 " + name },
           contents: { en: text },
-          android_accent_color: "7c6af7",
-          small_icon: "ic_stat_onesignal_default",
           data: { room: myRoom }
         })
       });
