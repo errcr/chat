@@ -752,6 +752,23 @@
     document.getElementById("my-chip-name").textContent = myName;
     setupPresence(); listenMessages(); listenTyping();
     requestNotifPermission();
+    listenBanStatus();
+  }
+
+  var banRef = null;
+  function listenBanStatus() {
+    if (banRef) { banRef.off(); banRef = null; }
+    banRef = db.ref("banned/" + myId);
+    banRef.on("value", function(snap) {
+      if (snap.exists()) {
+        cleanupListeners();
+        auth.signOut();
+        show("auth-screen"); hide("room-screen"); hide("chat-app");
+        var err = document.getElementById("error-msg");
+        err.textContent = "Sua conta foi suspensa pelo administrador.";
+        err.style.display = "block";
+      }
+    });
   }
 
   function leaveRoom() {
@@ -766,6 +783,7 @@
     if (msgListenerRef)      { msgListenerRef.off();      msgListenerRef=null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef=null; }
     if (typingListenerRef)   { typingListenerRef.off();   typingListenerRef=null; }
+    if (banRef)              { banRef.off();               banRef=null; }
     clearTypingStatus();
   }
 
