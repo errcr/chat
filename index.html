@@ -639,25 +639,6 @@
     } catch(e) {}
   }
 
-  function sendOneSignalNotif(name, text) {
-    fetch("https://onesignal.com/api/v1/notifications", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Basic " + ONESIGNAL_API_KEY
-      },
-      body: JSON.stringify({
-        app_id: ONESIGNAL_APP_ID,
-        included_segments: ["All"],
-        headings: { en: "💬 " + name },
-        contents: { en: text },
-        data: { room: myRoom }
-      })
-    }).then(function(r){ return r.json(); })
-      .then(function(d){ console.log("OneSignal response:", JSON.stringify(d)); })
-      .catch(function(e){ console.error("OneSignal error:", e); });
-  }
-
   var isRegisterMode = false;
 
   function toggleMode() {
@@ -978,8 +959,6 @@
     else { msg.text = text; }
     if (pendingReply) { msg.replyTo = { name:pendingReply.name, text:pendingReply.text }; }
     db.ref("messages/"+myRoom).push(msg);
-    // Envia notificação para outros dispositivos
-    sendOneSignalNotif(myName, msg.image ? "[imagem]" : (msg.text || ""));
     clearTypingStatus();
     input.value=""; input.style.height="22px";
     document.getElementById("send-btn").disabled = true;
