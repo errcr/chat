@@ -222,7 +222,7 @@
   <div class="auth-sub">Escolha uma sala para entrar:</div>
   <div class="input-group">
     <span class="input-label">Sala</span>
-    <input class="input-field" id="room-input" type="text" placeholder="Nome da sala" oninput="checkRoomPass()"/>
+    <input class="input-field" id="room-input" type="text" placeholder="Geral" oninput="checkRoomPass()"/>
     <span class="input-label" id="room-pass-label" style="display:none">Senha da sala</span>
     <input class="input-field" id="room-pass-input" type="password" placeholder="••••••••" style="display:none"/>
     <div id="room-pass-error" style="display:none;font-size:12px;color:var(--red);font-family:var(--mono);padding:0 2px">Senha incorreta.</div>
@@ -694,7 +694,7 @@
 
   function enterRoom() {
     var val  = document.getElementById("room-input").value.trim();
-    var room = (val||"Nome da sala").toLowerCase().replace(/\s+/g,"-");
+    var room = (val||"Geral").toLowerCase().replace(/\s+/g,"-");
     var passInput = document.getElementById("room-pass-input");
     var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
     document.getElementById("room-pass-error").style.display = "none";
