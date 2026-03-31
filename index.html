@@ -826,13 +826,15 @@
           : escHtml(msg.text||""));
 
         if (isOwn) {
-          row.innerHTML = emojiPickerHtml + reactBtnHtml +
+          row.innerHTML =
+            avHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
             '<div class="bubble mine" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
-            avHtml;
+            emojiPickerHtml;
         } else {
-          row.innerHTML = avHtml +
-            emojiPickerHtml + reactBtnHtml +
+          row.innerHTML =
+            avHtml +
+            emojiPickerHtml +
             '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
             '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
         }
