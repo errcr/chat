@@ -193,7 +193,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
@@ -328,9 +327,9 @@
     appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
   });
 
-  var auth    = firebase.auth();
-  var db      = firebase.database();
-  var storage = firebase.storage();
+  var auth = firebase.auth();
+  var db   = firebase.database();
+  var IMGBB_KEY = "1633dc8d351378d6926909cc392a026b";
 
   var COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
   function colorFor(name) {
@@ -536,14 +535,12 @@
     var file = event.target.files[0];
     if (!file) return;
     if (file.size > 5000000) { alert("Imagem muito grande! Máximo 5MB."); event.target.value=""; return; }
-    // preview local imediato
     var reader = new FileReader();
     reader.onload = function(e) {
       document.getElementById("img-preview").src = e.target.result;
       document.getElementById("img-preview-bar").style.display = "flex";
     };
     reader.readAsDataURL(file);
-    // guarda o File para upload no envio
     pendingImg = file;
     document.getElementById("send-btn").disabled = false;
   }
@@ -971,21 +968,25 @@
     if (pendingImg) {
       var file = pendingImg;
       removeImage();
-      var ext = file.name.split(".").pop() || "jpg";
-      var path = "chat-images/"+myRoom+"/"+Date.now()+"_"+myId+"."+ext;
-      var ref = storage.ref(path);
-      // mostrar progresso na barra de preview
       var bar = document.getElementById("img-preview-bar");
       bar.style.display = "flex";
       bar.innerHTML = '<span style="font-size:12px;font-family:var(--mono);color:var(--muted)">Enviando imagem...</span>';
-      ref.put(file).then(function() {
-        return ref.getDownloadURL();
-      }).then(function(url) {
+      var formData = new FormData();
+      formData.append("image", file);
+      fetch("https://api.imgbb.com/1/upload?key=" + IMGBB_KEY, {
+        method: "POST",
+        body: formData
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
         bar.style.display = "none";
         bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
+        if (!d.success) { alert("Erro ao enviar imagem."); return; }
+        var url = d.data.url;
         var msg = Object.assign({}, msgBase, { image: url, text: "" });
         db.ref("messages/"+myRoom).push(msg);
-      }).catch(function(e) {
+      })
+      .catch(function(e){
         bar.style.display = "none";
         bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
         alert("Erro ao enviar imagem: " + e.message);
