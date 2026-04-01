@@ -193,6 +193,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
@@ -327,8 +328,9 @@
     appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
   });
 
-  var auth = firebase.auth();
-  var db   = firebase.database();
+  var auth    = firebase.auth();
+  var db      = firebase.database();
+  var storage = firebase.storage();
 
   var COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
   function colorFor(name) {
@@ -533,15 +535,17 @@
   function handleImage(event) {
     var file = event.target.files[0];
     if (!file) return;
-    if (file.size > 500000) { alert("Imagem muito grande! Máximo 500KB."); event.target.value=""; return; }
+    if (file.size > 5000000) { alert("Imagem muito grande! Máximo 5MB."); event.target.value=""; return; }
+    // preview local imediato
     var reader = new FileReader();
     reader.onload = function(e) {
-      pendingImg = e.target.result;
-      document.getElementById("img-preview").src = pendingImg;
+      document.getElementById("img-preview").src = e.target.result;
       document.getElementById("img-preview-bar").style.display = "flex";
-      document.getElementById("send-btn").disabled = false;
     };
     reader.readAsDataURL(file);
+    // guarda o File para upload no envio
+    pendingImg = file;
+    document.getElementById("send-btn").disabled = false;
   }
   function removeImage() {
     pendingImg = null;
@@ -954,17 +958,42 @@
     var input = document.getElementById("msg-input");
     var text  = input.value.trim();
     if (!text && !pendingImg) return;
-    var msg = { name:myName, userId:myId, ts:Date.now() };
-    if (myEmoji) msg.emoji = myEmoji;
-    if (pendingImg) { msg.image = pendingImg; msg.text = ""; }
-    else { msg.text = text; }
-    if (pendingReply) { msg.replyTo = { name:pendingReply.name, text:pendingReply.text }; }
-    db.ref("messages/"+myRoom).push(msg);
+
+    var msgBase = { name:myName, userId:myId, ts:Date.now() };
+    if (myEmoji) msgBase.emoji = myEmoji;
+    if (pendingReply) { msgBase.replyTo = { name:pendingReply.name, text:pendingReply.text }; }
+
     clearTypingStatus();
     input.value=""; input.style.height="22px";
     document.getElementById("send-btn").disabled = true;
-    if (pendingImg) removeImage();
     cancelReply();
+
+    if (pendingImg) {
+      var file = pendingImg;
+      removeImage();
+      var ext = file.name.split(".").pop() || "jpg";
+      var path = "chat-images/"+myRoom+"/"+Date.now()+"_"+myId+"."+ext;
+      var ref = storage.ref(path);
+      // mostrar progresso na barra de preview
+      var bar = document.getElementById("img-preview-bar");
+      bar.style.display = "flex";
+      bar.innerHTML = '<span style="font-size:12px;font-family:var(--mono);color:var(--muted)">Enviando imagem...</span>';
+      ref.put(file).then(function() {
+        return ref.getDownloadURL();
+      }).then(function(url) {
+        bar.style.display = "none";
+        bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
+        var msg = Object.assign({}, msgBase, { image: url, text: "" });
+        db.ref("messages/"+myRoom).push(msg);
+      }).catch(function(e) {
+        bar.style.display = "none";
+        bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
+        alert("Erro ao enviar imagem: " + e.message);
+      });
+    } else {
+      var msg = Object.assign({}, msgBase, { text: text });
+      db.ref("messages/"+myRoom).push(msg);
+    }
   }
 
   function setTypingStatus(active) {
