@@ -1,3 +1,12 @@
 /*
   X-Frame-Options: SAMEORIGIN
   X-Content-Type-Options: nosniff
+  Permissions-Policy: notifications=*
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/javascript
+
+/manifest.json
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
