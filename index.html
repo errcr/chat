@@ -345,12 +345,6 @@
   function escHtml(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
-  function linkify(text) {
-    var escaped = escHtml(text);
-    return escaped.replace(/(https?:\/\/[^\s<>"']+)/g, function(url) {
-      return '<a href="'+url+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-underline-offset:2px;opacity:.85;word-break:break-all;">'+url+'</a>';
-    });
-  }
   function showError(msg) { var el=document.getElementById("error-msg"); el.textContent=msg; el.style.display="block"; }
   function hideError() { document.getElementById("error-msg").style.display="none"; }
   function show(id) {
@@ -716,6 +710,12 @@
         document.getElementById("greeting-email").textContent = user.email;
         initEmojiAvPicker();
         loadEmojiAv(user.uid);
+        // Registra usuário no banco para o admin conseguir listar todos
+        db.ref("users/" + user.uid).update({
+          name: user.displayName || user.email.split("@")[0],
+          email: user.email,
+          lastSeen: Date.now()
+        });
       });
     } else {
       show("auth-screen"); hide("room-screen"); hide("chat-app");
@@ -917,7 +917,7 @@
 
         var bubbleContent = replyQuote + (msg.image
           ? '<img class="bubble-img" src="'+msg.image+'" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
-          : linkify(msg.text||""));
+          : escHtml(msg.text||""));
 
         if (isOwn) {
           row.innerHTML =

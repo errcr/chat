@@ -633,7 +633,22 @@
     });
   }
 
+  var allRegisteredUsers = {}; // uid -> {name, email, lastSeen}
+
   function listenRooms() {
+    // Escuta usuários registrados
+    db.ref("users").on("value", function(snapUsers) {
+      allRegisteredUsers = {};
+      if (snapUsers.exists()) {
+        snapUsers.forEach(function(child) {
+          var uid = child.key;
+          var val = child.val();
+          if (val && val.name) allRegisteredUsers[uid] = val;
+        });
+      }
+      refreshUsersTable();
+    });
+
     db.ref("messages").on("value", function(snapMsgs) {
       var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
 
@@ -668,17 +683,30 @@
   function refreshUsersTable(msgData) {
     if (msgData) allMessagesData = msgData;
     var usersMap = {};
+
+    // 1. Usuários registrados no banco (todos que já logaram)
+    Object.keys(allRegisteredUsers).forEach(function(uid) {
+      var u = allRegisteredUsers[uid];
+      usersMap[uid] = { name: u.name, email: u.email || "", lastSeen: u.lastSeen || 0, msgCount: 0 };
+    });
+
+    // 2. Complementa com contagem de mensagens
     Object.keys(allMessagesData).forEach(function(room) {
       Object.keys(allMessagesData[room]).forEach(function(k) {
         var msg = allMessagesData[room][k];
         if (!msg.userId) return;
-        if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, msgCount: 0 };
+        if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, email: "", lastSeen: 0, msgCount: 0 };
         usersMap[msg.userId].msgCount++;
       });
     });
+
+    // 3. Complementa com presença (online agora)
     Object.keys(usersFromPresence).forEach(function(uid) {
-      if (!usersMap[uid]) usersMap[uid] = { name: usersFromPresence[uid].name, msgCount: 0 };
+      if (!usersMap[uid]) usersMap[uid] = { name: usersFromPresence[uid].name, email: "", lastSeen: 0, msgCount: 0 };
     });
+
+    // Atualiza contador total
+    document.getElementById("stat-total").textContent = Object.keys(usersMap).length;
     var tbody = document.getElementById("users-tbody");
     if (Object.keys(usersMap).length === 0) {
       tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>';
@@ -705,7 +733,8 @@
       var nameDisplay = isBanned
         ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
         : escHtml(info.name);
-      return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '"><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + nameDisplay + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + banBtn + '</td></tr>';
+      var emailDisplay = info.email ? '<div class="user-email">'+escHtml(info.email)+'</div>' : '';
+      return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '"><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + nameDisplay + '</div>'+emailDisplay+'</div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + banBtn + '</td></tr>';
     }).join("");
   }
 
