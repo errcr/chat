@@ -421,6 +421,7 @@
       pressTimer = setTimeout(function() { copyText(text); }, 600);
     });
     el.addEventListener("mouseup", function() { clearTimeout(pressTimer); });
+    el.addEventListener("mousemove", function() { clearTimeout(pressTimer); });
   }
 
   function copyText(text) {
@@ -473,6 +474,9 @@
       myEmoji = stored;
       var av = document.getElementById("header-av");
       if (av) { av.textContent = stored; av.style.background = "var(--surface2)"; av.style.border = "2px solid var(--border)"; }
+      // Atualiza chip se já estiver na sala
+      var chip = document.getElementById("my-chip-avatar");
+      if (chip && myRoom) chip.textContent = stored;
       return;
     }
     db.ref("users/"+uid+"/emoji").once("value", function(snap) {
@@ -481,6 +485,9 @@
         var av = document.getElementById("header-av");
         if (av) { av.textContent = snap.val(); av.style.background = "var(--surface2)"; av.style.border = "2px solid var(--border)"; }
         localStorage.setItem("emoji_av_"+uid, snap.val());
+        // Atualiza chip se já estiver na sala
+        var chip = document.getElementById("my-chip-avatar");
+        if (chip && myRoom) chip.textContent = snap.val();
       }
     });
   }
@@ -495,7 +502,8 @@
     return '<div class="avatar" style="width:'+s+'px;height:'+s+'px;background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+initials(name)+'</div>';
   }
 
-  var isDark = localStorage.getItem("theme") === "dark";
+  var storedTheme = localStorage.getItem("theme");
+  var isDark = storedTheme === null ? true : storedTheme === "dark";
   function applyTheme() {
     document.body.classList.toggle("light", !isDark);
     var btn = document.getElementById("theme-btn");
@@ -683,6 +691,7 @@
     if (isRegisterMode) {
       auth.createUserWithEmailAndPassword(email, password)
         .then(function(cred) { return cred.user.updateProfile({ displayName: name }); })
+        .then(function() { /* onAuthStateChanged cuida do redirecionamento */ })
         .catch(function(e) { btn.disabled=false; btn.textContent="Criar conta"; showError(msgs[e.code]||"Erro: "+e.message); });
     } else {
       auth.signInWithEmailAndPassword(email, password)
@@ -690,7 +699,11 @@
     }
   }
 
-  function logout() { auth.signOut(); }
+  function logout() {
+    myEmoji = "";
+    myId = ""; myName = ""; myRoom = "";
+    auth.signOut();
+  }
 
   auth.onAuthStateChanged(function(user) {
     if (user) {
@@ -718,9 +731,13 @@
     }
   });
 
+  function sanitizeRoom(val) {
+    return val.toLowerCase().replace(/\s+/g,"-").replace(/[.$#\[\]/]/g,"");
+  }
+
   function checkRoomPass() {
     var val  = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g,"-");
+    var room = sanitizeRoom(val);
     if (!room) { hideRoomPass(); return; }
     db.ref("room_settings/"+room+"/password").once("value", function(snap) {
       if (snap.exists() && snap.val()) {
@@ -740,7 +757,7 @@
 
   function saveRoomPass() {
     var val  = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g,"-");
+    var room = sanitizeRoom(val);
     if (!room) { alert("Digite o nome da sala primeiro."); return; }
     var pass = document.getElementById("room-new-pass").value;
     var ref  = db.ref("room_settings/"+room+"/password");
@@ -762,7 +779,8 @@
   function enterRoom() {
     var val  = document.getElementById("room-input").value.trim();
     if (!val) { alert("Digite o nome da sala."); return; }
-    var room = val.toLowerCase().replace(/\s+/g,"-");
+    var room = sanitizeRoom(val);
+    if (!room) { alert("Nome de sala inválido."); return; }
     var passInput = document.getElementById("room-pass-input");
     var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
     document.getElementById("room-pass-error").style.display = "none";
@@ -832,10 +850,13 @@
     document.getElementById("members-panel").classList.remove("open");
     hideRoomPass();
     resetUnread();
+    lastNotifTs = 0;
+    myRoom = ""; myId = ""; myName = "";
   }
 
   function cleanupListeners() {
     if (presenceRef) { presenceRef.remove(); presenceRef=null; }
+    if (myRoom && myId) db.ref("typing/"+myRoom+"/"+myId).remove();
     if (msgListenerRef)      { msgListenerRef.off();      msgListenerRef=null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef=null; }
     if (typingListenerRef)   { typingListenerRef.off();   typingListenerRef=null; }
@@ -985,6 +1006,7 @@
         var url = d.data.url;
         var msg = Object.assign({}, msgBase, { image: url, text: "" });
         db.ref("messages/"+myRoom).push(msg);
+        document.getElementById("img-file").value = "";
       })
       .catch(function(e){
         bar.style.display = "none";
@@ -1006,6 +1028,7 @@
   function renderReactions(msgId, reactions) {
     var el = document.getElementById("reactions-"+msgId);
     if (!el) return;
+    if (!reactions || Object.keys(reactions).length === 0) { el.innerHTML = ""; return; }
     var counts = {};
     Object.keys(reactions).forEach(function(uid) {
       var em = reactions[uid];
