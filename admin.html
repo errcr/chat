@@ -462,7 +462,7 @@
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr><td colspan="3"><div class="loading"><div class="sp"></div> Carregando...</div></td></tr>
+          <tr><td colspan="5"><div class="loading"><div class="sp"></div> Carregando...</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -655,62 +655,96 @@
     });
   }
 
-  function listenRooms() {
-  Promise.all([
-    db.ref("messages").once("value"),
-    db.ref("presence").once("value"),
-    db.ref("typing").once("value"),
-    db.ref("room_settings").once("value")
-  ])
-  .then(function(results) {
-    var snapMsgs = results[0];
-    var snapPres = results[1];
-    var snapTyp  = results[2];
-    var snapSettings = results[3];
+  var roomsRealtimeBound = false;
+var roomsRebuildTimer = null;
 
-    var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
-    var allRoomsSet = {};
+function listenRooms() {
+  function scheduleRebuild() {
+    clearTimeout(roomsRebuildTimer);
+    roomsRebuildTimer = setTimeout(rebuildRooms, 120);
+  }
 
-    if (snapMsgs.exists()) {
-      Object.keys(snapMsgs.val()).forEach(function(r) {
-        allRoomsSet[r] = true;
-      });
-    }
+  function rebuildRooms() {
+    Promise.all([
+      db.ref("messages").once("value"),
+      db.ref("presence").once("value"),
+      db.ref("typing").once("value"),
+      db.ref("room_settings").once("value")
+    ])
+    .then(function(results) {
+      var snapMsgs = results[0];
+      var snapPres = results[1];
+      var snapTyp = results[2];
+      var snapSettings = results[3];
 
-    if (snapPres.exists()) {
-      Object.keys(snapPres.val()).forEach(function(r) {
-        allRoomsSet[r] = true;
-      });
-    }
+      var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
+      var allRoomsSet = {};
 
-    if (snapTyp.exists()) {
-      Object.keys(snapTyp.val()).forEach(function(r) {
-        allRoomsSet[r] = true;
-      });
-    }
+      if (snapMsgs.exists()) {
+        Object.keys(snapMsgs.val()).forEach(function(r) {
+          allRoomsSet[r] = true;
+        });
+      }
 
-    if (snapSettings.exists()) {
-      Object.keys(snapSettings.val()).forEach(function(r) {
-        allRoomsSet[r] = true;
-      });
-    }
+      if (snapPres.exists()) {
+        Object.keys(snapPres.val()).forEach(function(r) {
+          allRoomsSet[r] = true;
+        });
+      }
 
-    allRooms = Object.keys(allRoomsSet).sort();
-    allMessagesData = msgData;
+      if (snapTyp.exists()) {
+        Object.keys(snapTyp.val()).forEach(function(r) {
+          allRoomsSet[r] = true;
+        });
+      }
 
-    document.getElementById("stat-rooms").textContent = allRooms.length;
+      if (snapSettings.exists()) {
+        Object.keys(snapSettings.val()).forEach(function(r) {
+          allRoomsSet[r] = true;
+        });
+      }
 
-    renderRoomsList();
-    refreshUsersTable();
-  })
-  .catch(function(err) {
-    console.error("Erro ao carregar salas:", err);
+      allRooms = Object.keys(allRoomsSet).sort();
+      allMessagesData = msgData;
 
-    document.getElementById("rooms-list-body").innerHTML =
-      '<div style="padding:16px;color:var(--red);font-size:13px;font-family:var(--mono)">Erro ao carregar salas.</div>';
+      document.getElementById("stat-rooms").textContent = allRooms.length;
+      renderRoomsList();
+      refreshUsersTable();
 
-    document.getElementById("stat-rooms").textContent = "0";
-  });
+      // se a sala selecionada foi apagada
+      if (selectedRoom && allRooms.indexOf(selectedRoom) === -1) {
+        selectedRoom = null;
+
+        if (activeRoomRef) {
+          activeRoomRef.off();
+          activeRoomRef = null;
+        }
+
+        document.getElementById("messages-panel").innerHTML =
+          '<div class="empty-panel">' +
+            '<div class="icon">💬</div>' +
+            '<div>Selecione uma sala ao lado</div>' +
+          '</div>';
+      }
+    })
+    .catch(function(err) {
+      console.error("Erro ao carregar salas:", err);
+      document.getElementById("rooms-list-body").innerHTML =
+        '<div style="padding:16px;color:var(--red);font-size:13px;font-family:var(--mono)">Erro ao carregar salas.</div>';
+      document.getElementById("stat-rooms").textContent = "0";
+    });
+  }
+
+  if (!roomsRealtimeBound) {
+    roomsRealtimeBound = true;
+
+    db.ref("messages").on("value", scheduleRebuild);
+    db.ref("presence").on("value", scheduleRebuild);
+    db.ref("typing").on("value", scheduleRebuild);
+    db.ref("room_settings").on("value", scheduleRebuild);
+  }
+
+  rebuildRooms();
 }
 
 function listenUsers() {
@@ -851,23 +885,48 @@ function refreshUsersTable() {
     db.ref("banned/" + uid).remove();
   };
 
-  window.deleteRoom = function(room) {
-    if (!confirm('Apagar a sala #' + room + ' e todas as suas mensagens? Esta ação não pode ser desfeita.')) return;
-    Promise.all([
-      db.ref("messages/" + room).remove(),
-      db.ref("presence/" + room).remove(),
-      db.ref("typing/" + room).remove(),
-      db.ref("room_settings/" + room).remove()
-    ]).then(function() {
-      allRooms = allRooms.filter(function(r){ return r !== room; });
-      if (selectedRoom === room) {
-        selectedRoom = null;
-        document.getElementById("messages-panel").innerHTML = '<div class="empty-panel"><div class="icon">💬</div><div>Selecione uma sala ao lado</div></div>';
-        if (activeRoomRef) { activeRoomRef.off(); activeRoomRef = null; }
+  window.deleteRoom = async function(room) {
+  if (!confirm('Apagar a sala #' + room + ' e todas as suas mensagens? Esta ação não pode ser desfeita.')) return;
+
+  try {
+    console.log("Tentando apagar sala:", room);
+
+    await db.ref("messages/" + room).remove();
+    console.log("messages ok");
+
+    await db.ref("presence/" + room).remove();
+    console.log("presence ok");
+
+    await db.ref("typing/" + room).remove();
+    console.log("typing ok");
+
+    await db.ref("room_settings/" + room).remove();
+    console.log("room_settings ok");
+
+    allRooms = allRooms.filter(function(r) { return r !== room; });
+
+    if (selectedRoom === room) {
+      selectedRoom = null;
+
+      if (activeRoomRef) {
+        activeRoomRef.off();
+        activeRoomRef = null;
       }
-      renderRoomsList();
-    });
-  };
+
+      document.getElementById("messages-panel").innerHTML =
+        '<div class="empty-panel">' +
+          '<div class="icon">💬</div>' +
+          '<div>Selecione uma sala ao lado</div>' +
+        '</div>';
+    }
+
+    renderRoomsList();
+    alert("✅ Sala apagada com sucesso.");
+  } catch (err) {
+    console.error("Erro detalhado ao apagar sala:", room, err);
+    alert("❌ Erro ao apagar sala: " + err.message);
+  }
+};
 
   function snapshotAdmin(snap) {
     return Object.keys(snap.val()).map(function(k) {
