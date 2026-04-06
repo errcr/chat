@@ -113,6 +113,14 @@
     .user-chip span { font-size:13px; font-weight:700; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     #empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--muted); font-family:var(--mono); font-size:13px; text-align:center; }
     #empty-state .empty-icon { font-size:36px; }
+    .btn-danger {
+      background: #ef4444 !important;
+      color: #fff !important;
+    }
+
+    .btn-danger:hover {
+      background: #dc2626 !important;
+    }
 
     /* ── Mobile ── */
     @media (max-width: 480px) {
@@ -236,22 +244,41 @@
     <div class="email" id="greeting-email"></div>
   </div>
   <div class="auth-sub">Escolha uma sala para entrar:</div>
+
   <div class="input-group">
     <span class="input-label">Sala</span>
     <input class="input-field" id="room-input" type="text" placeholder="Nome da sala" oninput="checkRoomPass()"/>
-    <span class="input-label" id="room-pass-label" style="display:none">Senha da sala</span>
+
+    <!-- 🔐 SENHA -->
+    <span class="input-label" id="room-pass-label" style="display:none">Senha para entrar</span>
     <input class="input-field" id="room-pass-input" type="password" placeholder="••••••••" style="display:none"/>
-    <div id="room-pass-error" style="display:none;font-size:12px;color:var(--red);font-family:var(--mono);padding:0 2px">Senha incorreta.</div>
-    <details style="font-size:12px;color:var(--muted);cursor:pointer">
-      <summary style="list-style:none;cursor:pointer;font-family:var(--mono)">🔐 Definir senha para esta sala</summary>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-        <input class="input-field" id="room-new-pass" type="password" placeholder="Nova senha (deixe vazio para remover)"/>
-        <button onclick="saveRoomPass()" style="padding:8px;border-radius:10px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Salvar senha</button>
-        <div id="room-pass-saved" style="display:none;font-size:12px;color:var(--green);font-family:var(--mono)">✓ Senha salva!</div>
-      </div>
-    </details>
-    <button class="btn-primary" onclick="enterRoom()">Entrar na sala</button>
+    <div id="room-pass-error" style="display:none;font-size:12px;color:var(--red);font-family:var(--mono);padding:0 2px">
+      Senha incorreta.
+    </div> 
+    <div id="room-owner-badge" style="display:none;font-size:12px;color:#fde68a;font-family:var(--mono);padding:0 2px">
+      👑 Você é o dono desta sala
+    </div>
+
+  <!-- CONFIGURAÇÃO -->
+  <details id="room-owner-settings" style="display:none;font-size:12px;color:var(--muted);cursor:pointer"> 
+
+    <summary style="list-style:none;cursor:pointer;font-family:var(--mono);display:flex;align-items:center;gap:6px">
+      🔐 Gerenciar senha da sala
+    </summary>
+
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <input class="input-field" id="room-new-pass" type="password" placeholder="Nova senha da sala"/>
+    </div>
+
+    <button class="btn-primary btn-danger" onclick="removeRoomPassword()" style="margin-top:10px;">
+      Remover senha
+    </button>
+
+  </details>
+
+  <button class="btn-primary" onclick="enterRoom()">Entrar na sala</button>
   </div>
+
   <button class="btn-secondary" onclick="logout()">Sair da conta</button>
 </div>
 
@@ -344,6 +371,12 @@
   }
   function escHtml(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+  function linkify(text) {
+    var escaped = escHtml(text);
+    return escaped.replace(/(https?:\/\/[^\s<>"']+)/g, function(url) {
+      return '<a href="'+url+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-underline-offset:2px;opacity:.85;word-break:break-all;">'+url+'</a>';
+    });
   }
   function showError(msg) { var el=document.getElementById("error-msg"); el.textContent=msg; el.style.display="block"; }
   function hideError() { document.getElementById("error-msg").style.display="none"; }
@@ -441,6 +474,180 @@
   // ── Emoji Avatar ──
   var AVATAR_EMOJIS = ['😀','😎','🤩','🥳','😏','🤔','😴','🥸','🤠','👻','🐱','🐶','🦊','🐸','🐧','🦁','🐯','🐻','🐼','🦄','🍕','🎮','🚀','⚡','🔥','💎','🎯','🌈','🎸','🏆'];
   var myEmoji = "";
+
+  function renderBatch(msgs, prepend) {
+  var container = document.getElementById("messages");
+  var fragment = document.createDocumentFragment();
+
+  msgs.forEach(function(msg) {
+    if (renderedIds[msg.id]) return;
+
+    var row = buildMessageRow(msg);
+    if (!row) return;
+
+    renderedIds[msg.id] = true;
+    fragment.appendChild(row);
+  });
+
+  var emptyState = document.getElementById("empty-state");
+  if (emptyState && msgs.length) emptyState.remove();
+
+  if (prepend) {
+    container.prepend(fragment);
+  } else {
+    container.appendChild(fragment);
+  }
+
+  rebuildGroupTails();
+}
+
+function renderSingleMessage(msg, shouldNotify) {
+  if (!msg || !msg.id || renderedIds[msg.id]) return;
+
+  var container = document.getElementById("messages");
+  var emptyState = document.getElementById("empty-state");
+  if (emptyState) emptyState.remove();
+
+  renderedIds[msg.id] = true;
+
+  var row = buildMessageRow(msg);
+  if (!row) return;
+
+  container.appendChild(row);
+  rebuildGroupTails();
+
+  if (
+    shouldNotify &&
+    msg.ts > lastNotifTs &&
+    msg.userId !== myId &&
+    msg.ts > Date.now() - 5000
+  ) {
+    playNotif();
+    sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
+    incrementUnread();
+    lastNotifTs = msg.ts;
+  }
+}
+
+function attachMessagesScroll() {
+  if (scrollHandlerAttached) return;
+
+  var container = document.getElementById("messages");
+  if (!container) return;
+
+  container.addEventListener("scroll", function() {
+    if (container.scrollTop < 120) {
+      loadOlderMessages();
+    }
+  });
+
+  scrollHandlerAttached = true;
+}
+
+function rebuildGroupTails() {
+  var rows = Array.prototype.slice.call(document.querySelectorAll("#messages .msg-row"));
+
+  rows.forEach(function(row) {
+    row.classList.remove("group-tail");
+
+    var avatar = row.querySelector(".avatar");
+    var placeholder = row.querySelector(".avatar-placeholder");
+    if (placeholder) placeholder.remove();
+    if (avatar) avatar.style.visibility = "visible";
+
+    var name = row.querySelector(".msg-name");
+    if (name) name.style.display = "block";
+  });
+
+  for (var i = 0; i < rows.length; i++) {
+    var current = rows[i];
+    var prev = rows[i - 1];
+
+    var currentUser = current.getAttribute("data-user-id");
+    var prevUser = prev ? prev.getAttribute("data-user-id") : null;
+
+    var showHeader = currentUser !== prevUser;
+
+    if (showHeader) {
+      current.classList.add("group-tail");
+    } else {
+      var avatar = current.querySelector(".avatar");
+      if (avatar) avatar.style.visibility = "hidden";
+
+      var name = current.querySelector(".msg-name");
+      if (name) name.style.display = "none";
+    }
+  }
+}
+
+function buildMessageRow(msg) {
+  var isOwn = msg.userId === myId;
+  var color = colorFor(msg.name);
+  var msgEmoji = msg.emoji || localStorage.getItem("emoji_av_" + msg.userId) || "";
+  var avContent = msgEmoji ? msgEmoji : initials(msg.name);
+
+  var row = document.createElement("div");
+  row.className = "msg-row" + (isOwn ? " own" : "");
+  row.id = "row-" + msg.id;
+  row.setAttribute("data-msg-id", msg.id);
+  row.setAttribute("data-user-id", msg.userId);
+
+  var avHtml =
+    '<div class="avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + avContent + '</div>';
+
+  var emojiPickerHtml =
+    '<div class="emoji-picker" id="ep-' + msg.id + '">'
+    + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
+        return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\'' + msg.id + '\',\'' + em + '\')">' + em + '</button>';
+      }).join('')
+    + '<button class="reply-btn" data-msgid="' + msg.id + '" data-name="' + escHtml(msg.name) + '" data-text="' + escHtml(msg.image ? "[imagem]" : (msg.text || "")) + '" onclick="event.stopPropagation();setReplyFromBtn(this)">↩</button>'
+    + '</div>';
+
+  var reactionsHtml = '<div class="reactions" id="reactions-' + msg.id + '"></div>';
+
+  var replyQuote = '';
+  if (msg.replyTo) {
+    replyQuote =
+      '<div class="reply-bar">' +
+        '<div class="reply-from">' + escHtml(msg.replyTo.name) + '</div>' +
+        '<div class="reply-txt">' + escHtml(msg.replyTo.text) + '</div>' +
+      '</div>';
+  }
+
+  var bubbleContent = replyQuote + (
+    msg.image
+      ? '<img class="bubble-img" src="' + msg.image + '" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
+      : linkify(msg.text || "")
+  );
+
+  if (isOwn) {
+    row.innerHTML =
+      avHtml +
+      '<div class="msg-body">' +
+        '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
+        '<div class="bubble mine" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
+        reactionsHtml +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
+      '</div>' +
+      emojiPickerHtml;
+  } else {
+    row.innerHTML =
+      avHtml +
+      emojiPickerHtml +
+      '<div class="msg-body">' +
+        '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
+        '<div class="bubble theirs" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
+        reactionsHtml +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
+      '</div>';
+  }
+
+  var bubble = row.querySelector(".bubble");
+  if (bubble && msg.text) setupLongPress(bubble, msg.text);
+
+  renderReactions(msg.id, msg.reactions || {});
+  return row;
+}
 
   function initEmojiAvPicker() {
     var picker = document.getElementById("emoji-av-picker");
@@ -622,7 +829,7 @@
     if (Notification.permission === "default") {
       Notification.requestPermission();
     }
-  }
+  } 
 
   function sendPushNotif(name, text) {
     if (!("Notification" in window)) return;
@@ -709,8 +916,7 @@
         document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
         document.getElementById("greeting-email").textContent = user.email;
         initEmojiAvPicker();
-        loadEmojiAv(user.uid);
-        // Registra usuário no banco para o admin conseguir listar todos
+        loadEmojiAv(user.uid); 
         db.ref("users/" + user.uid).update({
           name: user.displayName || user.email.split("@")[0],
           email: user.email,
@@ -724,18 +930,32 @@
     }
   });
 
-  function checkRoomPass() {
-    var val  = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g,"-");
-    if (!room) { hideRoomPass(); return; }
-    db.ref("room_settings/"+room+"/password").once("value", function(snap) {
-      if (snap.exists() && snap.val()) {
-        document.getElementById("room-pass-label").style.display = "block";
-        document.getElementById("room-pass-input").style.display = "block";
-      } else {
-        hideRoomPass();
-      }
-    });
+  async function checkRoomPass() {
+    var val = document.getElementById("room-input").value.trim();
+    var room = val.toLowerCase().replace(/\s+/g, "-");
+    var currentUid = auth.currentUser ? auth.currentUser.uid : null;
+
+    if (!room) {
+      hideRoomPass();
+      hideOwnerSettings();
+      return;
+    }
+
+    var snap = await db.ref("room_settings/" + room).once("value");
+    var data = snap.val() || {};
+
+    if (data.password) {
+      document.getElementById("room-pass-label").style.display = "block";
+      document.getElementById("room-pass-input").style.display = "block";
+    } else {
+      hideRoomPass();
+    }
+
+    if (data.ownerUid && currentUid && data.ownerUid === currentUid) {
+      showOwnerSettings();
+    } else {
+      hideOwnerSettings();
+    }
   }
 
   function hideRoomPass() {
@@ -744,111 +964,234 @@
     document.getElementById("room-pass-error").style.display = "none";
   }
 
-  function saveRoomPass() {
-    var val  = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g,"-");
-    if (!room) { alert("Digite o nome da sala primeiro."); return; }
-    var pass = document.getElementById("room-new-pass").value;
-    var ref  = db.ref("room_settings/"+room+"/password");
-    if (pass) {
-      ref.set(pass).then(function() {
-        document.getElementById("room-pass-saved").style.display = "block";
-        setTimeout(function(){ document.getElementById("room-pass-saved").style.display="none"; }, 2000);
-        checkRoomPass();
-      });
-    } else {
-      ref.remove().then(function() {
-        document.getElementById("room-pass-saved").style.display = "block";
-        setTimeout(function(){ document.getElementById("room-pass-saved").style.display="none"; }, 2000);
-        hideRoomPass();
-      });
+  async function enterRoom() {
+      var val = document.getElementById("room-input").value.trim();
+      if (!val) {
+        alert("Digite o nome da sala.");
+        return;
+      }
+
+      async function removeRoomPassword() {
+    var val = document.getElementById("room-input").value.trim();
+    if (!val) {
+      alert("Digite o nome da sala.");
+      return;
     }
+
+    var room = val.toLowerCase().replace(/\s+/g, "-");
+    var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
+
+    var snap = await db.ref("room_settings/" + room).once("value");
+    var data = snap.val() || {};
+
+    if (!snap.exists()) {
+      alert("Essa sala não existe.");
+      return;
+    }
+
+    if (data.ownerUid !== currentUid) {
+      alert("Só o dono da sala pode remover a senha.");
+      return;
+    }
+
+    await db.ref("room_settings/" + room + "/password").remove();
+
+    document.getElementById("room-new-pass").value = "";
+    document.getElementById("room-pass-input").value = "";
+    hideRoomPass();
+    alert("🔓 Senha removida com sucesso.");
   }
 
-  function enterRoom() {
-    var val  = document.getElementById("room-input").value.trim();
-    if (!val) { alert("Digite o nome da sala."); return; }
-    var room = val.toLowerCase().replace(/\s+/g,"-");
+    var room = val.toLowerCase().replace(/\s+/g, "-");
+    var newPass = document.getElementById("room-new-pass").value.trim();
     var passInput = document.getElementById("room-pass-input");
     var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
+
     document.getElementById("room-pass-error").style.display = "none";
 
-    db.ref("room_settings/"+room+"/password").once("value", function(snap) {
-      var storedPass = snap.val();
-      if (storedPass) {
-        if (!enteredPass || enteredPass !== storedPass) {
-          document.getElementById("room-pass-error").style.display = "block";
-          document.getElementById("room-pass-label").style.display = "block";
-          document.getElementById("room-pass-input").style.display = "block";
-          return;
-        }
+    var snap = await db.ref("room_settings/" + room).once("value");
+    var data = snap.val() || {};
+    var currentUid = myId || auth.currentUser.uid;
+
+    // criar sala nova
+    if (!snap.exists()) {
+      var payload = {
+        ownerUid: currentUid,
+        ownerName: myName || auth.currentUser.displayName || "Usuário",
+        createdAt: Date.now()
+      };
+
+      if (newPass) {
+        payload.password = await hashPassword(newPass);
       }
+
+      await db.ref("room_settings/" + room).set(payload);
       startChat(room);
-    });
+      return;
+    }
+
+    // dono alterando senha
+    if (data.ownerUid === currentUid && newPass) {
+      await db.ref("room_settings/" + room + "/password")
+        .set(await hashPassword(newPass));
+
+      startChat(room);
+      return;
+    }
+
+    // entrar em sala com senha
+    if (data.password) {
+      if (!enteredPass) {
+        document.getElementById("room-pass-error").style.display = "block";
+        return;
+      }
+
+      var enteredHash = await hashPassword(enteredPass);
+      if (enteredHash !== data.password) {
+        document.getElementById("room-pass-error").style.display = "block";
+        return;
+      }
+    }
+
+    startChat(room);
+  }
+
+  async function removeRoomPassword() {
+    var val = document.getElementById("room-input").value.trim();
+    if (!val) {
+      alert("Digite o nome da sala.");
+      return;
+    }
+
+    var room = val.toLowerCase().replace(/\s+/g, "-");
+    var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
+
+    var snap = await db.ref("room_settings/" + room).once("value");
+    var data = snap.val() || {};
+
+    if (!snap.exists()) {
+      alert("Essa sala não existe.");
+      return;
+    }
+
+    if (data.ownerUid !== currentUid) {
+      alert("Só o dono da sala pode remover a senha.");
+      return;
+    }
+
+    await db.ref("room_settings/" + room + "/password").remove();
+
+    document.getElementById("room-new-pass").value = "";
+    document.getElementById("room-pass-input").value = "";
+    hideRoomPass();
+    alert("🔓 Senha removida com sucesso.");
   }
 
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
   var typingTimeout=null, isTyping=false, renderedIds={}, lastUserId=null;
 
+  var PAGE_SIZE = 50;
+  var oldestLoadedTs = null;
+  var oldestLoadedKey = null;
+  var newestLoadedTs = null;
+  var loadingOlderMessages = false;
+  var hasMoreOldMessages = true;
+  var childAddedRef = null;
+  var scrollHandlerAttached = false;
+
   function startChat(room) {
     var user = auth.currentUser;
     if (!user) return;
     myRoom = room; myId = user.uid;
     myName = user.displayName || user.email.split("@")[0];
-    renderedIds = {}; lastUserId = null;
+    renderedIds = {};
+    lastUserId = null;
+    oldestLoadedTs = null;
+    oldestLoadedKey = null;
+    newestLoadedTs = null;
+    loadingOlderMessages = false;
+    hasMoreOldMessages = true;
+
     var container = document.getElementById("messages");
-    container.innerHTML = '<div id="empty-state"><div class="empty-icon">🛸</div><div>Nenhuma mensagem ainda.</div><div>Seja o primeiro a falar!</div></div>';
-    hide("room-screen"); show("chat-app");
+    container.innerHTML = '<div class="loading" id="chat-loading" style="justify-content:center;padding:20px;color:var(--muted);font-family:var(--mono)">Carregando mensagens...</div>';
+
+    hide("room-screen");
+    show("chat-app");
+
     document.getElementById("room-label").textContent = "# " + myRoom;
+
     var c = colorFor(myName);
     var chip = document.getElementById("my-chip-avatar");
     if (myEmoji) {
-      chip.style.background=c+"22"; chip.style.border="2px solid "+c+"44"; chip.style.color=c;
+      chip.style.background=c+"22";
+      chip.style.border="2px solid "+c+"44";
+      chip.style.color=c;
       chip.textContent=myEmoji;
     } else {
-      chip.style.background=c+"33"; chip.style.border="2px solid "+c+"66"; chip.style.color=c;
+      chip.style.background=c+"33";
+      chip.style.border="2px solid "+c+"66";
+      chip.style.color=c;
       chip.textContent=initials(myName);
     }
     document.getElementById("my-chip-name").textContent = myName;
-    setupPresence(); listenMessages(); listenTyping();
+
+    setupPresence();
+    listenMessagesPaged();
+    listenTyping();
     requestNotifPermission();
     listenBanStatus();
+    attachMessagesScroll();
   }
 
   var banRef = null;
-  function listenBanStatus() {
-    if (banRef) { banRef.off(); banRef = null; }
-    banRef = db.ref("banned/" + myId);
-    banRef.on("value", function(snap) {
-      if (snap.exists()) {
-        cleanupListeners();
-        auth.signOut();
-        show("auth-screen"); hide("room-screen"); hide("chat-app");
-        var err = document.getElementById("error-msg");
-        err.textContent = "Sua conta foi suspensa pelo administrador.";
-        err.style.display = "block";
-      }
-    });
-  }
+    function listenBanStatus() {
+      if (banRef) { banRef.off(); banRef = null; }
+      banRef = db.ref("banned/" + myId);
+      banRef.on("value", function(snap) {
+        if (snap.exists()) {
+          cleanupListeners();
+          auth.signOut();
+          show("auth-screen"); hide("room-screen"); hide("chat-app");
+          var err = document.getElementById("error-msg");
+          err.textContent = "Sua conta foi suspensa pelo administrador.";
+          err.style.display = "block";
+        }
+      });
+    } 
 
   function leaveRoom() {
-    cleanupListeners(); hide("chat-app"); show("room-screen");
+    cleanupListeners();
+    hide("chat-app");
+    show("room-screen");
+
     document.getElementById("room-pass-input").value = "";
+    document.getElementById("room-new-pass").value = "";
+    document.getElementById("room-input").value = "";
     document.getElementById("members-panel").classList.remove("open");
+
     hideRoomPass();
+    hideOwnerSettings();
     resetUnread();
   }
 
   function cleanupListeners() {
-    if (presenceRef) { presenceRef.remove(); presenceRef=null; }
-    if (msgListenerRef)      { msgListenerRef.off();      msgListenerRef=null; }
-    if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef=null; }
-    if (typingListenerRef)   { typingListenerRef.off();   typingListenerRef=null; }
-    if (banRef)              { banRef.off();               banRef=null; }
-    clearTypingStatus();
-  }
+    if (presenceRef) { presenceRef.remove(); presenceRef = null; }
+    if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
+    if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
+    if (banRef) { banRef.off(); banRef = null; }
 
+    detachMessageRealtime();
+    clearTypingStatus();
+
+    renderedIds = {};
+    lastUserId = null;
+    oldestLoadedTs = null;
+    oldestLoadedKey = null;
+    newestLoadedTs = null;
+    loadingOlderMessages = false;
+    hasMoreOldMessages = true;
+  }
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
@@ -862,85 +1205,179 @@
     });
   }
 
-  function listenMessages() {
-    msgListenerRef = db.ref("messages/"+myRoom);
-    msgListenerRef.on("value", function(snap) {
-      if (!snap.exists()) return;
-      var data = snap.val();
-      var msgs = Object.keys(data).map(function(k){ return Object.assign({id:k},data[k]); });
-      msgs.sort(function(a,b){ return a.ts-b.ts; });
-      var emptyState = document.getElementById("empty-state");
-      if (msgs.length>0 && emptyState) emptyState.parentNode.removeChild(emptyState);
+  function listenMessagesPaged() {
+  detachMessageRealtime();
+
+  var messagesRef = db.ref("messages/" + myRoom);
+
+  messagesRef
+    .orderByChild("ts")
+    .limitToLast(PAGE_SIZE)
+    .once("value", function(snap) {
       var container = document.getElementById("messages");
-      var prevUserId = lastUserId;
-      msgs.forEach(function(msg) {
-        if (renderedIds[msg.id]) {
-          // update reactions on already-rendered messages
-          renderReactions(msg.id, msg.reactions||{});
-          return;
-        }
-        renderedIds[msg.id] = true;
-        // notification
-        if (msg.ts > lastNotifTs && msg.userId !== myId && msg.ts > Date.now() - 5000) {
-          playNotif();
-          sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
-          incrementUnread();
-          lastNotifTs = msg.ts;
-        }
-        var isOwn      = msg.userId===myId;
-        var color      = colorFor(msg.name);
-        var showHeader = prevUserId!==msg.userId;
-        var row = document.createElement("div");
-        row.className = "msg-row"+(isOwn?" own":"")+(showHeader?" group-tail":"");
-        row.id = "row-"+msg.id;
+      container.innerHTML = "";
 
-        // avatar with emoji support
-        var msgEmoji = msg.emoji || localStorage.getItem("emoji_av_"+msg.userId) || "";
-        var avContent = msgEmoji ? msgEmoji : initials(msg.name);
-        var avHtml = showHeader
-          ? '<div class="avatar" style="background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+avContent+'</div>'
-          : '<div class="avatar-placeholder"></div>';
+      if (!snap.exists()) {
+        container.innerHTML = '<div id="empty-state"><div class="empty-icon">🛸</div><div>Nenhuma mensagem ainda.</div><div>Seja o primeiro a falar!</div></div>';
+        oldestLoadedTs = null;
+        oldestLoadedKey = null;
+        newestLoadedTs = null;
+        hasMoreOldMessages = false;
+        attachRealtimeNewMessages();
+        return;
+      }
 
-        var reactBtnHtml = '';
-        var emojiPickerHtml = '<div class="emoji-picker" id="ep-'+msg.id+'">'
-          + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
-              return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
-            }).join('')
-          + '<button class="reply-btn" data-msgid="'+msg.id+'" data-name="'+escHtml(msg.name)+'" data-text="'+escHtml(msg.image?'[imagem]':(msg.text||''))+'" onclick="event.stopPropagation();setReplyFromBtn(this)">↩</button>'
-          + '</div>';
-        var reactionsHtml = '<div class="reactions" id="reactions-'+msg.id+'"></div>';
+      var msgs = snapshotToSortedArray(snap);
 
-        var replyQuote = '';
-        if (msg.replyTo) {
-          replyQuote = '<div class="reply-bar"><div class="reply-from">'+escHtml(msg.replyTo.name)+'</div><div class="reply-txt">'+escHtml(msg.replyTo.text)+'</div></div>';
-        }
+      oldestLoadedTs = msgs[0].ts;
+      oldestLoadedKey = msgs[0].id;
+      newestLoadedTs = msgs[msgs.length - 1].ts;
+      hasMoreOldMessages = msgs.length === PAGE_SIZE;
 
-        var bubbleContent = replyQuote + (msg.image
-          ? '<img class="bubble-img" src="'+msg.image+'" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
-          : escHtml(msg.text||""));
+      renderBatch(msgs, false);
+      scrollBottom(true);
+      attachRealtimeNewMessages();
+    });
+}
 
-        if (isOwn) {
-          row.innerHTML =
-            avHtml +
-            '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble mine" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
-            emojiPickerHtml;
-        } else {
-          row.innerHTML =
-            avHtml +
-            emojiPickerHtml +
-            '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
-        }
-        container.appendChild(row);
-        // long press to copy
-        var bubble = row.querySelector(".bubble");
-        if (bubble && msg.text) setupLongPress(bubble, msg.text);
-        renderReactions(msg.id, msg.reactions||{});
-        prevUserId = msg.userId;
+function hideOwnerSettings() {
+  document.getElementById("room-owner-settings").style.display = "none";
+  document.getElementById("room-owner-badge").style.display = "none";
+  document.getElementById("room-new-pass").value = "";
+}
+
+function showOwnerSettings() {
+  document.getElementById("room-owner-settings").style.display = "block";
+  document.getElementById("room-owner-badge").style.display = "block";
+}
+
+function attachRealtimeNewMessages() {
+  detachMessageRealtime();
+
+  if (newestLoadedTs == null) {
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts");
+  } else {
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs);
+  }
+
+  childAddedRef.on("child_added", function(snap) {
+    var msg = snap.val();
+    if (!msg) return;
+
+    var fullMsg = Object.assign({ id: snap.key }, msg);
+
+    if (renderedIds[fullMsg.id]) return;
+
+    renderSingleMessage(fullMsg, true);
+
+    if (newestLoadedTs == null || fullMsg.ts > newestLoadedTs) {
+      newestLoadedTs = fullMsg.ts;
+    }
+
+    if (oldestLoadedTs == null) {
+      oldestLoadedTs = fullMsg.ts;
+      oldestLoadedKey = fullMsg.id;
+    }
+
+    scrollBottom();
+  });
+
+  msgListenerRef = db.ref("messages/" + myRoom);
+  msgListenerRef.on("child_changed", function(snap) {
+    var msg = snap.val();
+    if (!msg) return;
+    if (!renderedIds[snap.key]) return;
+
+    renderReactions(snap.key, msg.reactions || {});
+  });
+}
+
+function detachMessageRealtime() {
+  if (childAddedRef) {
+    childAddedRef.off();
+    childAddedRef = null;
+  }
+  if (msgListenerRef) {
+    msgListenerRef.off();
+    msgListenerRef = null;
+  }
+}
+
+function loadOlderMessages() {
+  if (loadingOlderMessages || !hasMoreOldMessages || oldestLoadedTs == null) return;
+
+  loadingOlderMessages = true;
+
+  var container = document.getElementById("messages");
+  var previousHeight = container.scrollHeight;
+
+  var loader = document.getElementById("older-loader");
+  if (!loader) {
+    loader = document.createElement("div");
+    loader.id = "older-loader";
+    loader.style.cssText = "text-align:center;padding:10px;color:var(--muted);font-size:12px;font-family:var(--mono)";
+    loader.textContent = "Carregando mensagens antigas...";
+    container.prepend(loader);
+  }
+
+  db.ref("messages/" + myRoom)
+    .orderByChild("ts")
+    .endAt(oldestLoadedTs)
+    .limitToLast(PAGE_SIZE + 20)
+    .once("value", function(snap) {
+      loader.remove();
+      loadingOlderMessages = false;
+
+      if (!snap.exists()) {
+        hasMoreOldMessages = false;
+        return;
+      }
+
+      var msgs = snapshotToSortedArray(snap);
+
+      msgs = msgs.filter(function(msg) {
+      if (msg.ts < oldestLoadedTs) return true;
+      if (msg.ts > oldestLoadedTs) return false;
+      if (msg.ts === oldestLoadedTs && msg.id !== oldestLoadedKey) return true;
+      return false;
+    });
+
+      msgs = msgs.filter(function(msg) {
+        return !renderedIds[msg.id];
       });
-      lastUserId = prevUserId;
-      scrollBottom();
+
+      if (!msgs.length) {
+        hasMoreOldMessages = false;
+        return;
+      }
+
+      if (msgs.length > PAGE_SIZE) {
+        msgs = msgs.slice(msgs.length - PAGE_SIZE);
+      }
+
+      oldestLoadedTs = msgs[0].ts;
+      oldestLoadedKey = msgs[0].id;
+      hasMoreOldMessages = true;
+
+      renderBatch(msgs, true);
+
+      requestAnimationFrame(function() {
+        var newHeight = container.scrollHeight;
+        container.scrollTop = newHeight - previousHeight;
+      });
+    })
+    .catch(function() {
+      if (loader) loader.remove();
+      loadingOlderMessages = false;
+    });
+}
+
+function snapshotToSortedArray(snap) {
+    return Object.keys(snap.val()).map(function(k) {
+      return Object.assign({ id: k }, snap.val()[k]);
+    }).sort(function(a, b) {
+      if (a.ts !== b.ts) return a.ts - b.ts;
+      return a.id.localeCompare(b.id);
     });
   }
 
@@ -958,49 +1395,187 @@
   }
 
   function sendMessage() {
-    var input = document.getElementById("msg-input");
-    var text  = input.value.trim();
-    if (!text && !pendingImg) return;
+  var input = document.getElementById("msg-input");
+  var text = input.value.trim();
 
-    var msgBase = { name:myName, userId:myId, ts:Date.now() };
-    if (myEmoji) msgBase.emoji = myEmoji;
-    if (pendingReply) { msgBase.replyTo = { name:pendingReply.name, text:pendingReply.text }; }
+  if (!text && !pendingImg) return;
 
-    clearTypingStatus();
-    input.value=""; input.style.height="22px";
-    document.getElementById("send-btn").disabled = true;
-    cancelReply();
+  // anti-flood por tempo
+  if (!window.lastMsgTime) window.lastMsgTime = 0;
+  var now = Date.now();
 
-    if (pendingImg) {
-      var file = pendingImg;
-      removeImage();
-      var bar = document.getElementById("img-preview-bar");
-      bar.style.display = "flex";
-      bar.innerHTML = '<span style="font-size:12px;font-family:var(--mono);color:var(--muted)">Enviando imagem...</span>';
-      var formData = new FormData();
-      formData.append("image", file);
-      fetch("https://api.imgbb.com/1/upload?key=" + IMGBB_KEY, {
-        method: "POST",
-        body: formData
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        bar.style.display = "none";
-        bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
-        if (!d.success) { alert("Erro ao enviar imagem."); return; }
-        var url = d.data.url;
-        var msg = Object.assign({}, msgBase, { image: url, text: "" });
-        db.ref("messages/"+myRoom).push(msg);
-      })
-      .catch(function(e){
-        bar.style.display = "none";
-        bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
-        alert("Erro ao enviar imagem: " + e.message);
-      });
-    } else {
-      var msg = Object.assign({}, msgBase, { text: text });
-      db.ref("messages/"+myRoom).push(msg);
+  if (now - window.lastMsgTime < 800) {
+    alert("⚠️ Muito rápido!");
+    addStrike();
+    return;
+  }
+
+  window.lastMsgTime = now;
+
+  // anti-spam por quantidade
+  if (!window.msgCount) window.msgCount = 0;
+  window.msgCount++;
+
+  if (window.msgCount > 6) {
+    alert("🚫 Spam detectado!");
+    addStrike();
+    return;
+  }
+
+  setTimeout(function() {
+    window.msgCount = Math.max((window.msgCount || 1) - 1, 0);
+  }, 4000);
+
+  // limite de tamanho
+  if (text.length > 300) {
+    alert("Mensagem muito grande!");
+    return;
+  }
+
+  // verifica mute no Firebase antes de enviar
+  db.ref("muted/" + myId).once("value").then(function(snap) {
+    if (snap.exists()) {
+      var data = snap.val() || {};
+
+      if (data.until && Date.now() < data.until) {
+        var segundos = Math.ceil((data.until - Date.now()) / 1000);
+        alert("🔇 Você está silenciado por mais " + segundos + "s.");
+        return;
+      }
+
+      // se expirou, remove
+      db.ref("muted/" + myId).remove();
     }
+
+    enviarMensagem(text);
+  }).catch(function(err) {
+    alert("Erro ao verificar mute: " + err.message);
+  });
+}
+
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function enviarMensagem(text) {
+  var input = document.getElementById("msg-input");
+
+  var msgBase = {
+    name: myName,
+    userId: myId,
+    ts: Date.now()
+  };
+
+  if (myEmoji) msgBase.emoji = myEmoji;
+
+  if (pendingReply) {
+    msgBase.replyTo = {
+      name: pendingReply.name,
+      text: pendingReply.text
+    };
+  }
+
+  clearTypingStatus();
+
+  if (pendingImg) {
+    var file = pendingImg;
+
+    pendingImg = null;
+    document.getElementById("img-preview").src = "";
+    document.getElementById("img-preview-bar").style.display = "none";
+    document.getElementById("img-file").value = "";
+
+    var formData = new FormData();
+    formData.append("image", file);
+
+    fetch("https://api.imgbb.com/1/upload?key=" + IMGBB_KEY, {
+      method: "POST",
+      body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.success) {
+        alert("Erro ao enviar imagem.");
+        return;
+      }
+
+      var msg = Object.assign({}, msgBase, {
+        text: text || "",
+        image: d.data.url
+      });
+
+      db.ref("messages/" + myRoom).push(msg);
+
+      input.value = "";
+      input.style.height = "22px";
+      cancelReply();
+      document.getElementById("send-btn").disabled = true;
+    })
+    .catch(function(e) {
+      alert("Erro ao enviar imagem: " + e.message);
+    });
+  } else {
+    var msg = Object.assign({}, msgBase, { text: text });
+
+    db.ref("messages/" + myRoom).push(msg);
+
+    input.value = "";
+    input.style.height = "22px";
+    cancelReply();
+    document.getElementById("send-btn").disabled = true;
+  }
+} 
+
+function autoBanUser() {
+  alert("🚫 Sua conta foi marcada por spam. Saindo da conta...");
+
+  // grava marca local para admin revisar depois
+  db.ref("spam_reports/" + myId).set({
+    name: myName,
+    uid: myId,
+    reason: "spam",
+    ts: Date.now()
+  }).finally(function() {
+    auth.signOut();
+  });
+}
+ 
+function addStrike() {
+  if (!window.strikes) window.strikes = 0;
+
+  window.strikes++;
+
+  console.log("STRIKE:", window.strikes);
+
+  if (window.strikes === 3) {
+    applyMute(15); // 15 segundos
+  }
+
+  if (window.strikes === 5) {
+    applyMute(60); // 1 minuto
+  }
+
+  if (window.strikes >= 7) {
+    autoBanUser();
+  }
+}
+  
+
+  function applyMute(seconds) {
+    var until = Date.now() + (seconds * 1000);
+
+    // 🔥 salva no Firebase
+    db.ref("muted/" + myId).set({
+      name: myName,
+      until: until,
+      reason: "spam"
+    });
+
+    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
   }
 
   function setTypingStatus(active) {
@@ -1009,19 +1584,22 @@
   function clearTypingStatus() {
     isTyping=false; setTypingStatus(false); clearTimeout(typingTimeout);
   }
-  function renderReactions(msgId, reactions) {
-    var el = document.getElementById("reactions-"+msgId);
+  function renderReactions(msgId, reactions) { 
+    var el = document.getElementById("reactions-" + msgId);
     if (!el) return;
+
     var counts = {};
-    Object.keys(reactions).forEach(function(uid) {
+    Object.keys(reactions || {}).forEach(function(uid) {
       var em = reactions[uid];
       if (!counts[em]) counts[em] = [];
       counts[em].push(uid);
     });
+
     el.innerHTML = Object.keys(counts).map(function(em) {
       var uids = counts[em];
       var mine = uids.indexOf(myId) > -1;
-      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="event.stopPropagation();addReaction(\''+msgId+'\',\''+em+'\')">'+em+'</span>';
+      return '<span class="reaction-pill' + (mine ? " mine" : "") + '" onclick="event.stopPropagation();addReaction(\'' + msgId + '\',\'' + em + '\')">' +
+        em + ' <span class="rc">' + uids.length + '</span></span>';
     }).join("");
   }
 
@@ -1047,12 +1625,20 @@
     document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
   });
 
-  function scrollBottom() {
-    var el = document.getElementById("messages");
-    requestAnimationFrame(function(){ el.scrollTop=el.scrollHeight; });
+  function scrollBottom(force) {
+    var container = document.getElementById("messages");
+    if (!container) return;
+
+    var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
+
+    if (force || nearBottom) {
+      requestAnimationFrame(function() {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
   }
 
-  document.addEventListener("DOMContentLoaded", function() {
+  document.addEventListener("DOMContentLoaded", function() { 
     document.addEventListener("click",      unlockAudio, { once: true });
     document.addEventListener("touchstart", unlockAudio, { once: true });
     document.addEventListener("keydown",    unlockAudio, { once: true });
