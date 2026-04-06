@@ -971,7 +971,7 @@ async function checkRoomPass() {
   var snap = await db.ref("room_settings/" + room).once("value");
   var data = snap.val() || {};
 
-  // campo de senha para entrar: só se a sala existente tiver senha
+  // mostra campo de senha só se a sala existente tiver senha
   if (data.password) {
     document.getElementById("room-pass-label").style.display = "block";
     document.getElementById("room-pass-input").style.display = "block";
@@ -979,14 +979,10 @@ async function checkRoomPass() {
     hideRoomPass();
   }
 
-  // painel: mostra para sala nova OU sala sua
-  if (!snap.exists() || (data.ownerUid && currentUid && data.ownerUid === currentUid)) {
-    document.getElementById("room-owner-settings").style.display = "block";
-  } else {
-    document.getElementById("room-owner-settings").style.display = "none";
-  }
+  // mostra SEMPRE o painel quando houver nome digitado
+  document.getElementById("room-owner-settings").style.display = "block";
 
-  // badge: mostra SÓ se a sala existir E for sua
+  // badge só quando a sala existir e for sua
   if (snap.exists() && data.ownerUid && currentUid && data.ownerUid === currentUid) {
     document.getElementById("room-owner-badge").style.display = "block";
   } else {
@@ -1155,7 +1151,6 @@ function hideOwnerSettings() {
 
 function showOwnerSettings() {
   document.getElementById("room-owner-settings").style.display = "block";
-  document.getElementById("room-owner-badge").style.display = "block";
 }
 
 function attachRealtimeNewMessages() {
