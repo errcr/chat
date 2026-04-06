@@ -889,12 +889,7 @@ function buildMessageRow(msg) {
         document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
         document.getElementById("greeting-email").textContent = user.email;
         initEmojiAvPicker();
-        loadEmojiAv(user.uid);
-        db.ref("users/" + user.uid).update({
-          name: user.displayName || user.email.split("@")[0],
-          email: user.email,
-          lastSeen: Date.now()
-        });
+        loadEmojiAv(user.uid); 
         db.ref("users/" + user.uid).update({
           name: user.displayName || user.email.split("@")[0],
           email: user.email,
@@ -977,6 +972,7 @@ function buildMessageRow(msg) {
 
   var PAGE_SIZE = 50;
   var oldestLoadedTs = null;
+  var oldestLoadedKey = null;
   var newestLoadedTs = null;
   var loadingOlderMessages = false;
   var hasMoreOldMessages = true;
@@ -991,6 +987,7 @@ function buildMessageRow(msg) {
     renderedIds = {};
     lastUserId = null;
     oldestLoadedTs = null;
+    oldestLoadedKey = null;
     newestLoadedTs = null;
     loadingOlderMessages = false;
     hasMoreOldMessages = true;
@@ -1062,6 +1059,7 @@ function buildMessageRow(msg) {
     renderedIds = {};
     lastUserId = null;
     oldestLoadedTs = null;
+    oldestLoadedKey = null;
     newestLoadedTs = null;
     loadingOlderMessages = false;
     hasMoreOldMessages = true;
@@ -1093,9 +1091,10 @@ function buildMessageRow(msg) {
 
       if (!snap.exists()) {
         container.innerHTML = '<div id="empty-state"><div class="empty-icon">🛸</div><div>Nenhuma mensagem ainda.</div><div>Seja o primeiro a falar!</div></div>';
-        oldestLoadedTs = null;
-        newestLoadedTs = null;
-        hasMoreOldMessages = false;
+        oldestLoadedTs = msgs[0].ts;
+        oldestLoadedKey = msgs[0].id;
+        newestLoadedTs = msgs[msgs.length - 1].ts;
+        hasMoreOldMessages = msgs.length === PAGE_SIZE;
         attachRealtimeNewMessages();
         return;
       }
@@ -1179,8 +1178,8 @@ function loadOlderMessages() {
 
   db.ref("messages/" + myRoom)
     .orderByChild("ts")
-    .endAt(oldestLoadedTs - 1)
-    .limitToLast(PAGE_SIZE)
+    .endAt(oldestLoadedTs)
+    .limitToLast(PAGE_SIZE + 20)
     .once("value", function(snap) {
       loader.remove();
       loadingOlderMessages = false;
@@ -1192,13 +1191,28 @@ function loadOlderMessages() {
 
       var msgs = snapshotToSortedArray(snap);
 
+      msgs = msgs.filter(function(msg) {
+        if (msg.ts < oldestLoadedTs) return true;
+        if (msg.ts > oldestLoadedTs) return false;
+        return msg.id < oldestLoadedKey;
+      });
+
+      msgs = msgs.filter(function(msg) {
+        return !renderedIds[msg.id];
+      });
+
       if (!msgs.length) {
         hasMoreOldMessages = false;
         return;
       }
 
+      if (msgs.length > PAGE_SIZE) {
+        msgs = msgs.slice(msgs.length - PAGE_SIZE);
+      }
+
       oldestLoadedTs = msgs[0].ts;
-      hasMoreOldMessages = msgs.length === PAGE_SIZE;
+      oldestLoadedKey = msgs[0].id;
+      hasMoreOldMessages = true;
 
       renderBatch(msgs, true);
 
@@ -1214,12 +1228,13 @@ function loadOlderMessages() {
 }
 
 function snapshotToSortedArray(snap) {
-  return Object.keys(snap.val()).map(function(k) {
-    return Object.assign({ id: k }, snap.val()[k]);
-  }).sort(function(a, b) {
-    return a.ts - b.ts;
-  });
-}
+    return Object.keys(snap.val()).map(function(k) {
+      return Object.assign({ id: k }, snap.val()[k]);
+    }).sort(function(a, b) {
+      if (a.ts !== b.ts) return a.ts - b.ts;
+      return a.id.localeCompare(b.id);
+    });
+  }
 
   function listenTyping() {
     typingListenerRef = db.ref("typing/"+myRoom);
