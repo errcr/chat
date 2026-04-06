@@ -895,6 +895,11 @@ function buildMessageRow(msg) {
           email: user.email,
           lastSeen: Date.now()
         });
+        db.ref("users/" + user.uid).update({
+          name: user.displayName || user.email.split("@")[0],
+          email: user.email,
+          lastSeen: Date.now()
+        });
       });
     } else {
       show("auth-screen"); hide("room-screen"); hide("chat-app");
@@ -1113,7 +1118,7 @@ function attachRealtimeNewMessages() {
   if (newestLoadedTs == null) {
     childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts");
   } else {
-    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs + 1);
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs);
   }
 
   childAddedRef.on("child_added", function(snap) {
@@ -1174,7 +1179,7 @@ function loadOlderMessages() {
 
   db.ref("messages/" + myRoom)
     .orderByChild("ts")
-    .endBefore(oldestLoadedTs)
+    .endAt(oldestLoadedTs - 1)
     .limitToLast(PAGE_SIZE)
     .once("value", function(snap) {
       loader.remove();
@@ -1281,7 +1286,7 @@ function snapshotToSortedArray(snap) {
   function clearTypingStatus() {
     isTyping=false; setTypingStatus(false); clearTimeout(typingTimeout);
   }
-  function renderReactions(msgId, reactions) {
+  function renderReactions(msgId, reactions) { 
     var el = document.getElementById("reactions-" + msgId);
     if (!el) return;
 
