@@ -963,10 +963,14 @@ function buildMessageRow(msg) {
     }
   }); 
  
+let lastRoomCheckToken = 0;
+
 async function checkRoomPass() {
   var val = document.getElementById("room-input").value.trim();
   var room = val.toLowerCase().replace(/\s+/g, "-");
   var currentUid = auth.currentUser ? auth.currentUser.uid : null;
+
+  const token = ++lastRoomCheckToken;
 
   if (!room) {
     hideRoomPass();
@@ -975,9 +979,13 @@ async function checkRoomPass() {
   }
 
   var snap = await db.ref("room_settings/" + room).once("value");
+
+  // se outra digitação aconteceu depois desta consulta, ignora esta resposta velha
+  if (token !== lastRoomCheckToken) return;
+
   var data = snap.val() || {};
 
-  // campo para entrar com senha: só se a sala existente tiver senha
+  // campo para entrar com senha
   if (data.password) {
     document.getElementById("room-pass-label").style.display = "block";
     document.getElementById("room-pass-input").style.display = "block";
@@ -985,19 +993,19 @@ async function checkRoomPass() {
     hideRoomPass();
   }
 
-  // sala nova: mostra gerenciar senha
+  // sala nova
   if (!snap.exists()) {
     document.getElementById("room-owner-settings").style.display = "block";
     document.getElementById("room-owner-badge").style.display = "none";
     return;
   }
 
-  // sala existente e sua: mostra gerenciar senha + badge
+  // sala existente e sua
   if (data.ownerUid && currentUid && data.ownerUid === currentUid) {
     document.getElementById("room-owner-settings").style.display = "block";
     document.getElementById("room-owner-badge").style.display = "block";
   } else {
-    // sala existente de outra pessoa: esconde tudo
+    // sala existente de outra pessoa
     hideOwnerSettings();
   }
 }
