@@ -1014,7 +1014,7 @@ function buildMessageRow(msg) {
 
   async function saveRoomPass() {
     var val  = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g,"-");
+    var room = val.toLowerCase().replace(/\s+/g, "-");
 
     if (!room) {
       alert("Digite o nome da sala primeiro.");
@@ -1022,28 +1022,33 @@ function buildMessageRow(msg) {
     }
 
     var pass = document.getElementById("room-new-pass").value;
-    var ref  = db.ref("room_settings/"+room+"/password");
+    var ref  = db.ref("room_settings/" + room + "/password");
 
     if (pass) {
       var hashed = await hashPassword(pass);
 
       ref.set(hashed).then(function() {
         document.getElementById("room-pass-saved").style.display = "block";
-        setTimeout(function(){
-          document.getElementById("room-pass-saved").style.display="none";
+        setTimeout(function() {
+          document.getElementById("room-pass-saved").style.display = "none";
         }, 2000);
 
         checkRoomPass();
       });
 
     } else {
-      ref.remove().then(function() {
+      db.ref("room_settings/" + room).update({
+        password: null,
+        private: null,
+        inviteHash: null
+      }).then(function() {
         document.getElementById("room-pass-saved").style.display = "block";
-        setTimeout(function(){
-          document.getElementById("room-pass-saved").style.display="none";
+        setTimeout(function() {
+          document.getElementById("room-pass-saved").style.display = "none";
         }, 2000);
 
         hideRoomPass();
+        hideInviteField();
       });
     }
   }
