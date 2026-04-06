@@ -896,6 +896,12 @@ function buildMessageRow(msg) {
     }
   }
 
+  function hideRoomPass() {
+    document.getElementById("room-pass-label").style.display = "none";
+    document.getElementById("room-pass-input").style.display = "none";
+    document.getElementById("room-pass-error").style.display = "none";
+  }
+
   function handleAuth() {
     hideError();
     var email    = document.getElementById("email-input").value.trim();
@@ -968,6 +974,9 @@ async function checkRoomPass() {
     return;
   }
 
+  // mostra logo o painel para qualquer nome digitado
+  document.getElementById("room-owner-settings").style.display = "block";
+
   var snap = await db.ref("room_settings/" + room).once("value");
   var data = snap.val() || {};
 
@@ -979,10 +988,7 @@ async function checkRoomPass() {
     hideRoomPass();
   }
 
-  // mostra SEMPRE o painel quando houver nome digitado
-  document.getElementById("room-owner-settings").style.display = "block";
-
-  // badge só quando a sala existir e for sua
+  // badge só se a sala existir e for sua
   if (snap.exists() && data.ownerUid && currentUid && data.ownerUid === currentUid) {
     document.getElementById("room-owner-badge").style.display = "block";
   } else {
