@@ -974,7 +974,7 @@ function buildMessageRow(msg) {
     var data = snap.val() || {};
     var currentUid = myId || auth.currentUser.uid;
 
-    // 🆕 CRIAR SALA
+    // criar sala nova
     if (!snap.exists()) {
       var payload = {
         ownerUid: currentUid,
@@ -991,28 +991,16 @@ function buildMessageRow(msg) {
       return;
     }
 
-    // 👑 DONO ALTERANDO / REMOVENDO SENHA
-    if (data.ownerUid === currentUid) {
+    // dono alterando senha
+    if (data.ownerUid === currentUid && newPass) {
+      await db.ref("room_settings/" + room + "/password")
+        .set(await hashPassword(newPass));
 
-      // 🔓 REMOVER SENHA (campo vazio)
-      if (!newPass && data.password) {
-        await db.ref("room_settings/" + room + "/password").remove();
-        hideRoomPass();
-        startChat(room);
-        return;
-      }
-
-      // 🔐 ALTERAR SENHA
-      if (newPass) {
-        await db.ref("room_settings/" + room + "/password")
-          .set(await hashPassword(newPass));
-
-        startChat(room);
-        return;
-      }
+      startChat(room);
+      return;
     }
 
-    // 🔐 ENTRAR EM SALA COM SENHA
+    // entrar em sala com senha
     if (data.password) {
       if (!enteredPass) {
         document.getElementById("room-pass-error").style.display = "block";
