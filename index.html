@@ -968,13 +968,10 @@ async function checkRoomPass() {
     return;
   }
 
-  // 🔥 MOSTRA SEMPRE quando digitar algo
-  showOwnerSettings();
-
   var snap = await db.ref("room_settings/" + room).once("value");
   var data = snap.val() || {};
 
-  // senha da sala existente
+  // campo de senha para entrar: só se a sala existente tiver senha
   if (data.password) {
     document.getElementById("room-pass-label").style.display = "block";
     document.getElementById("room-pass-input").style.display = "block";
@@ -982,8 +979,15 @@ async function checkRoomPass() {
     hideRoomPass();
   }
 
-  // badge de dono
+  // painel: mostra para sala nova OU sala sua
   if (!snap.exists() || (data.ownerUid && currentUid && data.ownerUid === currentUid)) {
+    document.getElementById("room-owner-settings").style.display = "block";
+  } else {
+    document.getElementById("room-owner-settings").style.display = "none";
+  }
+
+  // badge: mostra SÓ se a sala existir E for sua
+  if (snap.exists() && data.ownerUid && currentUid && data.ownerUid === currentUid) {
     document.getElementById("room-owner-badge").style.display = "block";
   } else {
     document.getElementById("room-owner-badge").style.display = "none";
