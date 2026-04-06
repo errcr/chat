@@ -1256,42 +1256,190 @@ function snapshotToSortedArray(snap) {
   }
 
   function sendMessage() {
+  var input = document.getElementById("msg-input");
+  var text = input.value.trim();
+
+  if (!text && !pendingImg) return;
+
+  // anti-flood por tempo
+  if (!window.lastMsgTime) window.lastMsgTime = 0;
+  var now = Date.now();
+
+  if (now - window.lastMsgTime < 800) {
+    alert("⚠️ Muito rápido!");
+    addStrike();
+    return;
+  }
+
+  window.lastMsgTime = now;
+
+  // anti-spam por quantidade
+  if (!window.msgCount) window.msgCount = 0;
+  window.msgCount++;
+
+  if (window.msgCount > 6) {
+    alert("🚫 Spam detectado!");
+    addStrike();
+    return;
+  }
+
+  setTimeout(function() {
+    window.msgCount = Math.max((window.msgCount || 1) - 1, 0);
+  }, 4000);
+
+  // limite de tamanho
+  if (text.length > 300) {
+    alert("Mensagem muito grande!");
+    return;
+  }
+
+  // verifica mute no Firebase antes de enviar
+  db.ref("muted/" + myId).once("value").then(function(snap) {
+    if (snap.exists()) {
+      var data = snap.val() || {};
+
+      if (data.until && Date.now() < data.until) {
+        var segundos = Math.ceil((data.until - Date.now()) / 1000);
+        alert("🔇 Você está silenciado por mais " + segundos + "s.");
+        return;
+      }
+
+      // se expirou, remove
+      db.ref("muted/" + myId).remove();
+    }
+
+    enviarMensagem(text);
+  }).catch(function(err) {
+    alert("Erro ao verificar mute: " + err.message);
+  });
+}
+
+function enviarMensagem(text) {
+  var input = document.getElementById("msg-input");
+
+  var msgBase = {
+    name: myName,
+    userId: myId,
+    ts: Date.now()
+  };
+
+  if (myEmoji) msgBase.emoji = myEmoji;
+
+  if (pendingReply) {
+    msgBase.replyTo = {
+      name: pendingReply.name,
+      text: pendingReply.text
+    };
+  }
+
+  clearTypingStatus();
+
+  if (pendingImg) {
+    var file = pendingImg;
+
+    pendingImg = null;
+    document.getElementById("img-preview").src = "";
+    document.getElementById("img-preview-bar").style.display = "none";
+    document.getElementById("img-file").value = "";
+
+    var formData = new FormData();
+    formData.append("image", file);
+
+    fetch("https://api.imgbb.com/1/upload?key=" + IMGBB_KEY, {
+      method: "POST",
+      body: formData
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (!d.success) {
+        alert("Erro ao enviar imagem.");
+        return;
+      }
+
+      var msg = Object.assign({}, msgBase, {
+        text: text || "",
+        image: d.data.url
+      });
+
+      db.ref("messages/" + myRoom).push(msg);
+
+      input.value = "";
+      input.style.height = "22px";
+      cancelReply();
+      document.getElementById("send-btn").disabled = true;
+    })
+    .catch(function(e) {
+      alert("Erro ao enviar imagem: " + e.message);
+    });
+  } else {
+    var msg = Object.assign({}, msgBase, { text: text });
+
+    db.ref("messages/" + myRoom).push(msg);
+
+    input.value = "";
+    input.style.height = "22px";
+    cancelReply();
+    document.getElementById("send-btn").disabled = true;
+  }
+}
+
+function addStrike() {
+  if (!window.strikes) window.strikes = 0;
+
+  window.strikes++;
+
+  console.log("STRIKE:", window.strikes);
+
+  if (window.strikes === 3) {
+    applyMute(15);
+    return;
+  }
+
+  if (window.strikes === 5) {
+    applyMute(60);
+    return;
+  }
+
+  if (window.strikes >= 7) {
+    autoBanUser();
+  }
+}
+
+function autoBanUser() {
+  alert("🚫 Sua conta foi marcada por spam. Saindo da conta...");
+
+  // grava marca local para admin revisar depois
+  db.ref("spam_reports/" + myId).set({
+    name: myName,
+    uid: myId,
+    reason: "spam",
+    ts: Date.now()
+  }).finally(function() {
+    auth.signOut();
+  });
+}
+
+function isMuted() {
+  return false;
+}
+
+function applyMute(seconds) {
+  var until = Date.now() + (seconds * 1000);
+
+  db.ref("muted/" + myId).set({
+    name: myName,
+    until: until,
+    reason: "spam"
+  }).then(function() {
+    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
+  }).catch(function(err) {
+    alert("Erro ao aplicar mute: " + err.message);
+  });
+}
+
+  function enviarMensagem() {
     var input = document.getElementById("msg-input");
     var msg = input.value;
-
-    if (!msg.trim() && !pendingImg) return;
-
-    // 🔐 Anti-spam por tempo
-    if (!window.lastMsgTime) window.lastMsgTime = 0;
-    var now = Date.now();
-
-    if (now - window.lastMsgTime < 800) {
-      alert("⚠️ Muito rápido!");
-      addStrike();
-      return;
-    }
-
-    window.lastMsgTime = now;
-
-    // 🔐 Controle de spam inteligente
-    if (!window.msgCount) window.msgCount = 0;
-    window.msgCount++;
-
-    if (window.msgCount > 6) {
-      alert("🚫 Spam detectado!");
-      addStrike();
-      return;
-    }
-
-    setTimeout(function() {
-      window.msgCount = 0;
-    }, 4000);
-
-    // 🔐 limite de tamanho
-    if (msg.length > 300) {
-      alert("Mensagem muito grande!");
-      return;
-    }
 
     var messageData = {
       text: msg,
@@ -1331,7 +1479,15 @@ function snapshotToSortedArray(snap) {
 
     console.log("STRIKE:", window.strikes);
 
-    if (window.strikes >= 3) {
+    if (window.strikes === 3) {
+      applyMute(15); // 15 segundos
+    }
+
+    if (window.strikes === 5) {
+      applyMute(60); // 1 minuto
+    }
+
+    if (window.strikes >= 7) {
       autoBanUser();
     }
   }
@@ -1346,6 +1502,33 @@ function snapshotToSortedArray(snap) {
     });
 
     auth.signOut();
+  }
+
+  // 🔇 Sistema de mute
+  function isMuted() {
+    var muteUntil = localStorage.getItem("mute_until");
+
+    if (!muteUntil) return false;
+
+    if (Date.now() > parseInt(muteUntil)) {
+      localStorage.removeItem("mute_until");
+      return false;
+    }
+
+    return true;
+  }
+
+  function applyMute(seconds) {
+    var until = Date.now() + (seconds * 1000);
+
+    // 🔥 salva no Firebase
+    db.ref("muted/" + myId).set({
+      name: myName,
+      until: until,
+      reason: "spam"
+    });
+
+    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
   }
 
   function setTypingStatus(active) {
