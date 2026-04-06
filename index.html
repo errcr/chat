@@ -345,6 +345,12 @@
   function escHtml(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
+  function linkify(text) {
+    var escaped = escHtml(text);
+    return escaped.replace(/(https?:\/\/[^\s<>"']+)/g, function(url) {
+      return '<a href="'+url+'" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" style="color:inherit;text-decoration:underline;text-underline-offset:2px;opacity:.85;word-break:break-all;">'+url+'</a>';
+    });
+  }
   function showError(msg) { var el=document.getElementById("error-msg"); el.textContent=msg; el.style.display="block"; }
   function hideError() { document.getElementById("error-msg").style.display="none"; }
   function show(id) {
@@ -441,6 +447,180 @@
   // ── Emoji Avatar ──
   var AVATAR_EMOJIS = ['😀','😎','🤩','🥳','😏','🤔','😴','🥸','🤠','👻','🐱','🐶','🦊','🐸','🐧','🦁','🐯','🐻','🐼','🦄','🍕','🎮','🚀','⚡','🔥','💎','🎯','🌈','🎸','🏆'];
   var myEmoji = "";
+
+  function renderBatch(msgs, prepend) {
+  var container = document.getElementById("messages");
+  var fragment = document.createDocumentFragment();
+
+  msgs.forEach(function(msg) {
+    if (renderedIds[msg.id]) return;
+
+    var row = buildMessageRow(msg);
+    if (!row) return;
+
+    renderedIds[msg.id] = true;
+    fragment.appendChild(row);
+  });
+
+  var emptyState = document.getElementById("empty-state");
+  if (emptyState && msgs.length) emptyState.remove();
+
+  if (prepend) {
+    container.prepend(fragment);
+  } else {
+    container.appendChild(fragment);
+  }
+
+  rebuildGroupTails();
+}
+
+function renderSingleMessage(msg, shouldNotify) {
+  if (!msg || !msg.id || renderedIds[msg.id]) return;
+
+  var container = document.getElementById("messages");
+  var emptyState = document.getElementById("empty-state");
+  if (emptyState) emptyState.remove();
+
+  renderedIds[msg.id] = true;
+
+  var row = buildMessageRow(msg);
+  if (!row) return;
+
+  container.appendChild(row);
+  rebuildGroupTails();
+
+  if (
+    shouldNotify &&
+    msg.ts > lastNotifTs &&
+    msg.userId !== myId &&
+    msg.ts > Date.now() - 5000
+  ) {
+    playNotif();
+    sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
+    incrementUnread();
+    lastNotifTs = msg.ts;
+  }
+}
+
+function attachMessagesScroll() {
+  if (scrollHandlerAttached) return;
+
+  var container = document.getElementById("messages");
+  if (!container) return;
+
+  container.addEventListener("scroll", function() {
+    if (container.scrollTop < 120) {
+      loadOlderMessages();
+    }
+  });
+
+  scrollHandlerAttached = true;
+}
+
+function rebuildGroupTails() {
+  var rows = Array.prototype.slice.call(document.querySelectorAll("#messages .msg-row"));
+
+  rows.forEach(function(row) {
+    row.classList.remove("group-tail");
+
+    var avatar = row.querySelector(".avatar");
+    var placeholder = row.querySelector(".avatar-placeholder");
+    if (placeholder) placeholder.remove();
+    if (avatar) avatar.style.visibility = "visible";
+
+    var name = row.querySelector(".msg-name");
+    if (name) name.style.display = "block";
+  });
+
+  for (var i = 0; i < rows.length; i++) {
+    var current = rows[i];
+    var prev = rows[i - 1];
+
+    var currentUser = current.getAttribute("data-user-id");
+    var prevUser = prev ? prev.getAttribute("data-user-id") : null;
+
+    var showHeader = currentUser !== prevUser;
+
+    if (showHeader) {
+      current.classList.add("group-tail");
+    } else {
+      var avatar = current.querySelector(".avatar");
+      if (avatar) avatar.style.visibility = "hidden";
+
+      var name = current.querySelector(".msg-name");
+      if (name) name.style.display = "none";
+    }
+  }
+}
+
+function buildMessageRow(msg) {
+  var isOwn = msg.userId === myId;
+  var color = colorFor(msg.name);
+  var msgEmoji = msg.emoji || localStorage.getItem("emoji_av_" + msg.userId) || "";
+  var avContent = msgEmoji ? msgEmoji : initials(msg.name);
+
+  var row = document.createElement("div");
+  row.className = "msg-row" + (isOwn ? " own" : "");
+  row.id = "row-" + msg.id;
+  row.setAttribute("data-msg-id", msg.id);
+  row.setAttribute("data-user-id", msg.userId);
+
+  var avHtml =
+    '<div class="avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + avContent + '</div>';
+
+  var emojiPickerHtml =
+    '<div class="emoji-picker" id="ep-' + msg.id + '">'
+    + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
+        return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\'' + msg.id + '\',\'' + em + '\')">' + em + '</button>';
+      }).join('')
+    + '<button class="reply-btn" data-msgid="' + msg.id + '" data-name="' + escHtml(msg.name) + '" data-text="' + escHtml(msg.image ? "[imagem]" : (msg.text || "")) + '" onclick="event.stopPropagation();setReplyFromBtn(this)">↩</button>'
+    + '</div>';
+
+  var reactionsHtml = '<div class="reactions" id="reactions-' + msg.id + '"></div>';
+
+  var replyQuote = '';
+  if (msg.replyTo) {
+    replyQuote =
+      '<div class="reply-bar">' +
+        '<div class="reply-from">' + escHtml(msg.replyTo.name) + '</div>' +
+        '<div class="reply-txt">' + escHtml(msg.replyTo.text) + '</div>' +
+      '</div>';
+  }
+
+  var bubbleContent = replyQuote + (
+    msg.image
+      ? '<img class="bubble-img" src="' + msg.image + '" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
+      : linkify(msg.text || "")
+  );
+
+  if (isOwn) {
+    row.innerHTML =
+      avHtml +
+      '<div class="msg-body">' +
+        '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
+        '<div class="bubble mine" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
+        reactionsHtml +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
+      '</div>' +
+      emojiPickerHtml;
+  } else {
+    row.innerHTML =
+      avHtml +
+      emojiPickerHtml +
+      '<div class="msg-body">' +
+        '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
+        '<div class="bubble theirs" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
+        reactionsHtml +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
+      '</div>';
+  }
+
+  var bubble = row.querySelector(".bubble");
+  if (bubble && msg.text) setupLongPress(bubble, msg.text);
+
+  renderReactions(msg.id, msg.reactions || {});
+  return row;
+}
 
   function initEmojiAvPicker() {
     var picker = document.getElementById("emoji-av-picker");
@@ -710,7 +890,6 @@
         document.getElementById("greeting-email").textContent = user.email;
         initEmojiAvPicker();
         loadEmojiAv(user.uid);
-        // Registra usuário no banco para o admin conseguir listar todos
         db.ref("users/" + user.uid).update({
           name: user.displayName || user.email.split("@")[0],
           email: user.email,
@@ -791,29 +970,55 @@
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
   var typingTimeout=null, isTyping=false, renderedIds={}, lastUserId=null;
 
+  var PAGE_SIZE = 50;
+  var oldestLoadedTs = null;
+  var newestLoadedTs = null;
+  var loadingOlderMessages = false;
+  var hasMoreOldMessages = true;
+  var childAddedRef = null;
+  var scrollHandlerAttached = false;
+
   function startChat(room) {
     var user = auth.currentUser;
     if (!user) return;
     myRoom = room; myId = user.uid;
     myName = user.displayName || user.email.split("@")[0];
-    renderedIds = {}; lastUserId = null;
+    renderedIds = {};
+    lastUserId = null;
+    oldestLoadedTs = null;
+    newestLoadedTs = null;
+    loadingOlderMessages = false;
+    hasMoreOldMessages = true;
+
     var container = document.getElementById("messages");
-    container.innerHTML = '<div id="empty-state"><div class="empty-icon">🛸</div><div>Nenhuma mensagem ainda.</div><div>Seja o primeiro a falar!</div></div>';
-    hide("room-screen"); show("chat-app");
+    container.innerHTML = '<div class="loading" id="chat-loading" style="justify-content:center;padding:20px;color:var(--muted);font-family:var(--mono)">Carregando mensagens...</div>';
+
+    hide("room-screen");
+    show("chat-app");
+
     document.getElementById("room-label").textContent = "# " + myRoom;
+
     var c = colorFor(myName);
     var chip = document.getElementById("my-chip-avatar");
     if (myEmoji) {
-      chip.style.background=c+"22"; chip.style.border="2px solid "+c+"44"; chip.style.color=c;
+      chip.style.background=c+"22";
+      chip.style.border="2px solid "+c+"44";
+      chip.style.color=c;
       chip.textContent=myEmoji;
     } else {
-      chip.style.background=c+"33"; chip.style.border="2px solid "+c+"66"; chip.style.color=c;
+      chip.style.background=c+"33";
+      chip.style.border="2px solid "+c+"66";
+      chip.style.color=c;
       chip.textContent=initials(myName);
     }
     document.getElementById("my-chip-name").textContent = myName;
-    setupPresence(); listenMessages(); listenTyping();
+
+    setupPresence();
+    listenMessagesPaged();
+    listenTyping();
     requestNotifPermission();
     listenBanStatus();
+    attachMessagesScroll();
   }
 
   var banRef = null;
@@ -841,14 +1046,21 @@
   }
 
   function cleanupListeners() {
-    if (presenceRef) { presenceRef.remove(); presenceRef=null; }
-    if (msgListenerRef)      { msgListenerRef.off();      msgListenerRef=null; }
-    if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef=null; }
-    if (typingListenerRef)   { typingListenerRef.off();   typingListenerRef=null; }
-    if (banRef)              { banRef.off();               banRef=null; }
-    clearTypingStatus();
-  }
+    if (presenceRef) { presenceRef.remove(); presenceRef = null; }
+    if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
+    if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
+    if (banRef) { banRef.off(); banRef = null; }
 
+    detachMessageRealtime();
+    clearTypingStatus();
+
+    renderedIds = {};
+    lastUserId = null;
+    oldestLoadedTs = null;
+    newestLoadedTs = null;
+    loadingOlderMessages = false;
+    hasMoreOldMessages = true;
+  }
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
@@ -862,87 +1074,147 @@
     });
   }
 
-  function listenMessages() {
-    msgListenerRef = db.ref("messages/"+myRoom);
-    msgListenerRef.on("value", function(snap) {
-      if (!snap.exists()) return;
-      var data = snap.val();
-      var msgs = Object.keys(data).map(function(k){ return Object.assign({id:k},data[k]); });
-      msgs.sort(function(a,b){ return a.ts-b.ts; });
-      var emptyState = document.getElementById("empty-state");
-      if (msgs.length>0 && emptyState) emptyState.parentNode.removeChild(emptyState);
+  function listenMessagesPaged() {
+  detachMessageRealtime();
+
+  var messagesRef = db.ref("messages/" + myRoom);
+
+  messagesRef
+    .orderByChild("ts")
+    .limitToLast(PAGE_SIZE)
+    .once("value", function(snap) {
       var container = document.getElementById("messages");
-      var prevUserId = lastUserId;
-      msgs.forEach(function(msg) {
-        if (renderedIds[msg.id]) {
-          // update reactions on already-rendered messages
-          renderReactions(msg.id, msg.reactions||{});
-          return;
-        }
-        renderedIds[msg.id] = true;
-        // notification
-        if (msg.ts > lastNotifTs && msg.userId !== myId && msg.ts > Date.now() - 5000) {
-          playNotif();
-          sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
-          incrementUnread();
-          lastNotifTs = msg.ts;
-        }
-        var isOwn      = msg.userId===myId;
-        var color      = colorFor(msg.name);
-        var showHeader = prevUserId!==msg.userId;
-        var row = document.createElement("div");
-        row.className = "msg-row"+(isOwn?" own":"")+(showHeader?" group-tail":"");
-        row.id = "row-"+msg.id;
+      container.innerHTML = "";
 
-        // avatar with emoji support
-        var msgEmoji = msg.emoji || localStorage.getItem("emoji_av_"+msg.userId) || "";
-        var avContent = msgEmoji ? msgEmoji : initials(msg.name);
-        var avHtml = showHeader
-          ? '<div class="avatar" style="background:'+color+'22;border:2px solid '+color+'44;color:'+color+'">'+avContent+'</div>'
-          : '<div class="avatar-placeholder"></div>';
+      if (!snap.exists()) {
+        container.innerHTML = '<div id="empty-state"><div class="empty-icon">🛸</div><div>Nenhuma mensagem ainda.</div><div>Seja o primeiro a falar!</div></div>';
+        oldestLoadedTs = null;
+        newestLoadedTs = null;
+        hasMoreOldMessages = false;
+        attachRealtimeNewMessages();
+        return;
+      }
 
-        var reactBtnHtml = '';
-        var emojiPickerHtml = '<div class="emoji-picker" id="ep-'+msg.id+'">'
-          + ['❤️','😂','😮','😢','👍','🔥'].map(function(em){
-              return '<button class="ep-btn" onclick="event.stopPropagation();addReaction(\''+msg.id+'\',\''+em+'\')">'+em+'</button>';
-            }).join('')
-          + '<button class="reply-btn" data-msgid="'+msg.id+'" data-name="'+escHtml(msg.name)+'" data-text="'+escHtml(msg.image?'[imagem]':(msg.text||''))+'" onclick="event.stopPropagation();setReplyFromBtn(this)">↩</button>'
-          + '</div>';
-        var reactionsHtml = '<div class="reactions" id="reactions-'+msg.id+'"></div>';
+      var msgs = snapshotToSortedArray(snap);
 
-        var replyQuote = '';
-        if (msg.replyTo) {
-          replyQuote = '<div class="reply-bar"><div class="reply-from">'+escHtml(msg.replyTo.name)+'</div><div class="reply-txt">'+escHtml(msg.replyTo.text)+'</div></div>';
-        }
+      oldestLoadedTs = msgs[0].ts;
+      newestLoadedTs = msgs[msgs.length - 1].ts;
+      hasMoreOldMessages = msgs.length === PAGE_SIZE;
 
-        var bubbleContent = replyQuote + (msg.image
-          ? '<img class="bubble-img" src="'+msg.image+'" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
-          : escHtml(msg.text||""));
-
-        if (isOwn) {
-          row.innerHTML =
-            avHtml +
-            '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble mine" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>'+
-            emojiPickerHtml;
-        } else {
-          row.innerHTML =
-            avHtml +
-            emojiPickerHtml +
-            '<div class="msg-body">'+(showHeader?'<div class="msg-name" style="color:'+color+'">'+escHtml(msg.name)+'</div>':'')+
-            '<div class="bubble theirs" onclick="openEmojiPicker(event,\''+msg.id+'\')">'+bubbleContent+'</div>'+reactionsHtml+'<div class="msg-time">'+fmtTime(msg.ts)+'</div></div>';
-        }
-        container.appendChild(row);
-        // long press to copy
-        var bubble = row.querySelector(".bubble");
-        if (bubble && msg.text) setupLongPress(bubble, msg.text);
-        renderReactions(msg.id, msg.reactions||{});
-        prevUserId = msg.userId;
-      });
-      lastUserId = prevUserId;
-      scrollBottom();
+      renderBatch(msgs, false);
+      scrollBottom(true);
+      attachRealtimeNewMessages();
     });
+}
+
+function attachRealtimeNewMessages() {
+  detachMessageRealtime();
+
+  if (newestLoadedTs == null) {
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts");
+  } else {
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs + 1);
   }
+
+  childAddedRef.on("child_added", function(snap) {
+    var msg = snap.val();
+    if (!msg) return;
+
+    var fullMsg = Object.assign({ id: snap.key }, msg);
+
+    if (renderedIds[fullMsg.id]) return;
+
+    renderSingleMessage(fullMsg, true);
+
+    if (newestLoadedTs == null || fullMsg.ts > newestLoadedTs) {
+      newestLoadedTs = fullMsg.ts;
+    }
+
+    if (oldestLoadedTs == null) {
+      oldestLoadedTs = fullMsg.ts;
+    }
+
+    scrollBottom();
+  });
+
+  childAddedRef.on("child_changed", function(snap) {
+    var msg = snap.val();
+    if (!msg) return;
+    renderReactions(snap.key, msg.reactions || {});
+  });
+}
+
+function detachMessageRealtime() {
+  if (childAddedRef) {
+    childAddedRef.off();
+    childAddedRef = null;
+  }
+  if (msgListenerRef) {
+    msgListenerRef.off();
+    msgListenerRef = null;
+  }
+}
+
+function loadOlderMessages() {
+  if (loadingOlderMessages || !hasMoreOldMessages || oldestLoadedTs == null) return;
+
+  loadingOlderMessages = true;
+
+  var container = document.getElementById("messages");
+  var previousHeight = container.scrollHeight;
+
+  var loader = document.getElementById("older-loader");
+  if (!loader) {
+    loader = document.createElement("div");
+    loader.id = "older-loader";
+    loader.style.cssText = "text-align:center;padding:10px;color:var(--muted);font-size:12px;font-family:var(--mono)";
+    loader.textContent = "Carregando mensagens antigas...";
+    container.prepend(loader);
+  }
+
+  db.ref("messages/" + myRoom)
+    .orderByChild("ts")
+    .endBefore(oldestLoadedTs)
+    .limitToLast(PAGE_SIZE)
+    .once("value", function(snap) {
+      loader.remove();
+      loadingOlderMessages = false;
+
+      if (!snap.exists()) {
+        hasMoreOldMessages = false;
+        return;
+      }
+
+      var msgs = snapshotToSortedArray(snap);
+
+      if (!msgs.length) {
+        hasMoreOldMessages = false;
+        return;
+      }
+
+      oldestLoadedTs = msgs[0].ts;
+      hasMoreOldMessages = msgs.length === PAGE_SIZE;
+
+      renderBatch(msgs, true);
+
+      requestAnimationFrame(function() {
+        var newHeight = container.scrollHeight;
+        container.scrollTop = newHeight - previousHeight;
+      });
+    })
+    .catch(function() {
+      if (loader) loader.remove();
+      loadingOlderMessages = false;
+    });
+}
+
+function snapshotToSortedArray(snap) {
+  return Object.keys(snap.val()).map(function(k) {
+    return Object.assign({ id: k }, snap.val()[k]);
+  }).sort(function(a, b) {
+    return a.ts - b.ts;
+  });
+}
 
   function listenTyping() {
     typingListenerRef = db.ref("typing/"+myRoom);
@@ -1010,18 +1282,21 @@
     isTyping=false; setTypingStatus(false); clearTimeout(typingTimeout);
   }
   function renderReactions(msgId, reactions) {
-    var el = document.getElementById("reactions-"+msgId);
+    var el = document.getElementById("reactions-" + msgId);
     if (!el) return;
+
     var counts = {};
-    Object.keys(reactions).forEach(function(uid) {
+    Object.keys(reactions || {}).forEach(function(uid) {
       var em = reactions[uid];
       if (!counts[em]) counts[em] = [];
       counts[em].push(uid);
     });
+
     el.innerHTML = Object.keys(counts).map(function(em) {
       var uids = counts[em];
       var mine = uids.indexOf(myId) > -1;
-      return '<span class="reaction-pill'+(mine?" mine":"")+'" onclick="event.stopPropagation();addReaction(\''+msgId+'\',\''+em+'\')">'+em+'</span>';
+      return '<span class="reaction-pill' + (mine ? " mine" : "") + '" onclick="event.stopPropagation();addReaction(\'' + msgId + '\',\'' + em + '\')">' +
+        em + ' <span class="rc">' + uids.length + '</span></span>';
     }).join("");
   }
 
@@ -1047,9 +1322,17 @@
     document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
   });
 
-  function scrollBottom() {
-    var el = document.getElementById("messages");
-    requestAnimationFrame(function(){ el.scrollTop=el.scrollHeight; });
+  function scrollBottom(force) {
+    var container = document.getElementById("messages");
+    if (!container) return;
+
+    var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
+
+    if (force || nearBottom) {
+      requestAnimationFrame(function() {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
   }
 
   document.addEventListener("DOMContentLoaded", function() {
