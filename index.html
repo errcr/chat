@@ -1137,14 +1137,18 @@ function attachRealtimeNewMessages() {
 
     if (oldestLoadedTs == null) {
       oldestLoadedTs = fullMsg.ts;
+      oldestLoadedKey = fullMsg.id;
     }
 
     scrollBottom();
   });
 
-  childAddedRef.on("child_changed", function(snap) {
+  msgListenerRef = db.ref("messages/" + myRoom);
+  msgListenerRef.on("child_changed", function(snap) {
     var msg = snap.val();
     if (!msg) return;
+    if (!renderedIds[snap.key]) return;
+
     renderReactions(snap.key, msg.reactions || {});
   });
 }
