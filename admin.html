@@ -618,8 +618,9 @@
   var adminChildAddedRef = null;
   var adminChildChangedRef = null;
   var adminRenderedIds = {};
+  var adminScrollAttached = false;
 
-  var usersData = {};
+  var usersData = {}; 
 
   function initAdmin() {
     listenPresence();
@@ -942,11 +943,15 @@ function refreshUsersTable() {
     var list = document.getElementById("msg-list");
     if (!list) return;
 
+    if (adminScrollAttached) return;
+
     list.addEventListener("scroll", function() {
       if (list.scrollTop < 100) {
         loadOlderAdmin();
       }
     });
+
+    adminScrollAttached = true;
   }
 
   function loadOlderAdmin() {
@@ -1053,12 +1058,13 @@ function refreshUsersTable() {
           '<span class="msg-count">carregando...</span>' +
         '</div>' +
         '<div class="loading"><div class="sp"></div> Carregando mensagens...</div>';
-
+       
       adminOldestTs = null;
       adminOldestKey = null;
       adminNewestTs = null;
       adminHasMore = true;
       adminRenderedIds = {};
+      adminScrollAttached = false;
 
       db.ref("messages/" + room)
         .orderByChild("ts")
