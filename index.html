@@ -948,7 +948,7 @@ function buildMessageRow(msg) {
     document.getElementById("room-pass-error").style.display = "none";
   }
 
- async function enterRoom() {
+  async function enterRoom() {
     var val = document.getElementById("room-input").value.trim();
     if (!val) {
       alert("Digite o nome da sala.");
@@ -964,11 +964,12 @@ function buildMessageRow(msg) {
 
     var snap = await db.ref("room_settings/" + room).once("value");
     var data = snap.val() || {};
+    var currentUid = myId || auth.currentUser.uid;
 
-    // sala ainda não existe
+    // 🆕 CRIAR SALA
     if (!snap.exists()) {
       var payload = {
-        ownerUid: myId || auth.currentUser.uid,
+        ownerUid: currentUid,
         ownerName: myName || auth.currentUser.displayName || "Usuário",
         createdAt: Date.now()
       };
@@ -982,19 +983,29 @@ function buildMessageRow(msg) {
       return;
     }
 
-    // se digitou nova senha, só o dono pode alterar
-    if (newPass) {
-      if (data.ownerUid !== (myId || auth.currentUser.uid)) {
-        alert("Só quem criou a sala pode alterar a senha.");
+    // 👑 DONO ALTERANDO / REMOVENDO SENHA
+    if (data.ownerUid === currentUid) {
+
+      // 🔓 REMOVER SENHA (campo vazio)
+      if (!newPass && data.password) {
+        await db.ref("room_settings/" + room + "/password").remove();
+        hideRoomPass();
+        startChat(room);
         return;
       }
 
-      await db.ref("room_settings/" + room + "/password").set(await hashPassword(newPass));
+      // 🔐 ALTERAR SENHA
+      if (newPass) {
+        await db.ref("room_settings/" + room + "/password")
+          .set(await hashPassword(newPass));
+
+        startChat(room);
+        return;
+      }
     }
 
-    // se a sala tem senha e a pessoa não está alterando como dona,
-    // precisa validar a senha digitada no campo de entrada
-    if (data.password && !newPass) {
+    // 🔐 ENTRAR EM SALA COM SENHA
+    if (data.password) {
       if (!enteredPass) {
         document.getElementById("room-pass-error").style.display = "block";
         return;
@@ -1008,7 +1019,7 @@ function buildMessageRow(msg) {
     }
 
     startChat(room);
-  } 
+  }
 
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
