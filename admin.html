@@ -636,24 +636,41 @@
     });
   }
 
-  function listenPresence() {
-    db.ref("presence").on("value", function(snap) {
-      presenceData = snap.exists() ? snap.val() : {};
-      usersFromPresence = {};
-      Object.keys(presenceData).forEach(function(room) {
-        Object.keys(presenceData[room]).forEach(function(uid) {
-          var info = presenceData[room][uid];
-          if (!info || !info.name) return;
-          if (!usersFromPresence[uid]) usersFromPresence[uid] = { name: info.name, rooms: [] };
-          if (usersFromPresence[uid].rooms.indexOf(room) === -1)
-            usersFromPresence[uid].rooms.push(room);
-        });
+  var presenceRealtimeBound = false;
+
+function listenPresence() {
+  function rebuildPresence(snap) {
+    presenceData = snap.exists() ? snap.val() : {};
+    usersFromPresence = {};
+
+    Object.keys(presenceData).forEach(function(room) {
+      Object.keys(presenceData[room]).forEach(function(uid) {
+        var info = presenceData[room][uid];
+        if (!info || !info.name) return;
+
+        if (!usersFromPresence[uid]) {
+          usersFromPresence[uid] = { name: info.name, rooms: [] };
+        }
+
+        if (usersFromPresence[uid].rooms.indexOf(room) === -1) {
+          usersFromPresence[uid].rooms.push(room);
+        }
       });
-      document.getElementById("stat-online").textContent = Object.keys(usersFromPresence).length;
-      renderOnlineTab();
-      refreshUsersTable();
     });
+
+    document.getElementById("stat-online").textContent = Object.keys(usersFromPresence).length;
+
+    renderOnlineTab();
+    refreshUsersTable();
   }
+
+  if (!presenceRealtimeBound) {
+    presenceRealtimeBound = true;
+    db.ref("presence").on("value", rebuildPresence);
+  }
+
+  db.ref("presence").once("value", rebuildPresence);
+}
 
   var roomsRealtimeBound = false;
 var roomsRebuildTimer = null;
@@ -747,12 +764,21 @@ function listenRooms() {
   rebuildRooms();
 }
 
+var usersRealtimeBound = false;
+
 function listenUsers() {
-  db.ref("users").on("value", function(snap) {
+  function rebuildUsers(snap) {
     usersData = snap.exists() ? snap.val() : {};
     refreshUsersTable();
-  });
-} 
+  }
+
+  if (!usersRealtimeBound) {
+    usersRealtimeBound = true;
+    db.ref("users").on("value", rebuildUsers);
+  }
+
+  db.ref("users").once("value", rebuildUsers);
+}
 
 function refreshUsersTable() {
   var usersMap = {};
