@@ -1048,6 +1048,37 @@ function buildMessageRow(msg) {
     startChat(room);
   }
 
+  async function removeRoomPassword() {
+    var val = document.getElementById("room-input").value.trim();
+    if (!val) {
+      alert("Digite o nome da sala.");
+      return;
+    }
+
+    var room = val.toLowerCase().replace(/\s+/g, "-");
+    var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
+
+    var snap = await db.ref("room_settings/" + room).once("value");
+    var data = snap.val() || {};
+
+    if (!snap.exists()) {
+      alert("Essa sala não existe.");
+      return;
+    }
+
+    if (data.ownerUid !== currentUid) {
+      alert("Só o dono da sala pode remover a senha.");
+      return;
+    }
+
+    await db.ref("room_settings/" + room + "/password").remove();
+
+    document.getElementById("room-new-pass").value = "";
+    document.getElementById("room-pass-input").value = "";
+    hideRoomPass();
+    alert("🔓 Senha removida com sucesso.");
+  }
+
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
   var typingTimeout=null, isTyping=false, renderedIds={}, lastUserId=null;
