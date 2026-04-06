@@ -614,10 +614,13 @@
   var adminChildChangedRef = null;
   var adminRenderedIds = {};
 
+  var usersData = {};
+
   function initAdmin() {
     listenPresence();
     listenRooms();
     listenBanned();
+    listenUsers();
   }
 
   function listenBanned() {
@@ -703,51 +706,107 @@
     renderRoomsList();
     refreshUsersTable();
   });
+} 
+
+function listenUsers() {
+  db.ref("users").on("value", function(snap) {
+    usersData = snap.exists() ? snap.val() : {};
+    refreshUsersTable();
+  });
 }
 
-  function refreshUsersTable(msgData) {
-    if (msgData) allMessagesData = msgData;
-    var usersMap = {};
-    Object.keys(allMessagesData).forEach(function(room) {
-      Object.keys(allMessagesData[room]).forEach(function(k) {
-        var msg = allMessagesData[room][k];
-        if (!msg.userId) return;
-        if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, msgCount: 0 };
-        usersMap[msg.userId].msgCount++;
-      });
+function refreshUsersTable() {
+  var usersMap = {};
+
+  Object.keys(usersData).forEach(function(uid) {
+    var u = usersData[uid] || {};
+    usersMap[uid] = {
+      name: u.name || u.email || "Usuário",
+      email: u.email || "",
+      msgCount: 0
+    };
+  });
+
+  Object.keys(allMessagesData).forEach(function(room) {
+    Object.keys(allMessagesData[room]).forEach(function(k) {
+      var msg = allMessagesData[room][k];
+      if (!msg.userId) return;
+
+      if (!usersMap[msg.userId]) {
+        usersMap[msg.userId] = {
+          name: msg.name || "Usuário",
+          email: "",
+          msgCount: 0
+        };
+      }
+
+      usersMap[msg.userId].msgCount++;
     });
-    Object.keys(usersFromPresence).forEach(function(uid) {
-      if (!usersMap[uid]) usersMap[uid] = { name: usersFromPresence[uid].name, msgCount: 0 };
-    });
-    var tbody = document.getElementById("users-tbody");
-    if (Object.keys(usersMap).length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>';
-      return;
+  });
+
+  Object.keys(usersFromPresence).forEach(function(uid) {
+    if (!usersMap[uid]) {
+      usersMap[uid] = {
+        name: usersFromPresence[uid].name || "Usuário",
+        email: "",
+        msgCount: 0
+      };
     }
-    tbody.innerHTML = Object.keys(usersMap).sort(function(a,b){
-      return usersMap[b].msgCount - usersMap[a].msgCount;
-    }).map(function(uid) {
-      var info    = usersMap[uid];
-      var online  = !!usersFromPresence[uid];
-      var rooms   = usersFromPresence[uid] ? usersFromPresence[uid].rooms : [];
-      var color   = colorFor(info.name);
-      var statusHtml = online
-        ? '<span class="online-dot"><span class="dot"></span> online</span>'
-        : '<span class="offline-dot">offline</span>';
-      var roomHtml = rooms.length
-        ? rooms.map(function(r) { return '<span class="tag tag-room">#' + escHtml(r) + '</span>'; }).join(" ")
-        : '<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>';
-      var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
-      var isBanned = bannedUsers[uid];
-      var banBtn = isBanned
-        ? '<button onclick="unbanUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#34d39920;border:1px solid #34d39940;border-radius:8px;color:#34d399;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">✓ Desbanir</button>'
-        : '<button onclick="banUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">🚫 Banir</button>';
-      var nameDisplay = isBanned
-        ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
-        : escHtml(info.name);
-      return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '"><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + nameDisplay + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + banBtn + '</td></tr>';
-    }).join("");
+  });
+
+  document.getElementById("stat-total").textContent = Object.keys(usersMap).length;
+
+  var tbody = document.getElementById("users-tbody");
+
+  if (Object.keys(usersMap).length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>';
+    return;
   }
+
+  tbody.innerHTML = Object.keys(usersMap).sort(function(a, b) {
+    return usersMap[b].msgCount - usersMap[a].msgCount;
+  }).map(function(uid) {
+    var info = usersMap[uid];
+    var online = !!usersFromPresence[uid];
+    var rooms = usersFromPresence[uid] ? usersFromPresence[uid].rooms : [];
+    var color = colorFor(info.name);
+    var isBanned = bannedUsers[uid];
+
+    var statusHtml = online
+      ? '<span class="online-dot"><span class="dot"></span> online</span>'
+      : '<span class="offline-dot">offline</span>';
+
+    var roomHtml = rooms.length
+      ? rooms.map(function(r) {
+          return '<span class="tag tag-room">#' + escHtml(r) + '</span>';
+        }).join(" ")
+      : '<span style="color:var(--muted);font-size:12px;font-family:var(--mono)">—</span>';
+
+    var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
+
+    var banBtn = isBanned
+      ? '<button onclick="unbanUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#34d39920;border:1px solid #34d39940;border-radius:8px;color:#34d399;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">✓ Desbanir</button>'
+      : '<button onclick="banUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">🚫 Banir</button>';
+
+    var nameDisplay = isBanned
+      ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
+      : escHtml(info.name);
+
+    return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '">' +
+      '<td><div class="user-row-name">' +
+        '<div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div>' +
+        '<div>' +
+          '<div class="user-name">' + nameDisplay + '</div>' +
+          '<div class="user-email">' + escHtml(info.email || "") + '</div>' +
+        '</div>' +
+      '</div></td>' +
+      '<td>' + statusHtml + '</td>' +
+      '<td>' + roomHtml + '</td>' +
+      '<td>' + countHtml + '</td>' +
+      '<td>' + banBtn + '</td>' +
+    '</tr>';
+  }).join("");
+}
 
   function renderRoomsList() {
     var body = document.getElementById("rooms-list-body");
