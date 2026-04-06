@@ -647,36 +647,63 @@
   }
 
   function listenRooms() {
-    db.ref("messages").on("value", function(snapMsgs) {
-      var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
+  Promise.all([
+    db.ref("messages").once("value"),
+    db.ref("presence").once("value"),
+    db.ref("typing").once("value"),
+    db.ref("room_settings").once("value")
+  ]).then(function(results) {
+    var snapMsgs = results[0];
+    var snapPres = results[1];
+    var snapTyp  = results[2];
+    var snapSettings = results[3];
 
-      // busca salas em presence e typing também
-      db.ref("presence").once("value", function(snapPres) {
-        db.ref("typing").once("value", function(snapTyp) {
-          db.ref("room_settings").once("value", function(snapSettings) {
-            var allRoomsSet = {};
-            if (snapMsgs.exists())    Object.keys(snapMsgs.val()).forEach(function(r){ allRoomsSet[r]=true; });
-            if (snapPres.exists())    Object.keys(snapPres.val()).forEach(function(r){ allRoomsSet[r]=true; });
-            if (snapTyp.exists())     Object.keys(snapTyp.val()).forEach(function(r){ allRoomsSet[r]=true; });
-            if (snapSettings.exists()) Object.keys(snapSettings.val()).forEach(function(r){ allRoomsSet[r]=true; });
-            allRooms = Object.keys(allRoomsSet).sort();
+    var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
+    var allRoomsSet = {};
 
-            document.getElementById("stat-rooms").textContent = allRooms.length;
-            var userSet = {};
-            Object.keys(msgData).forEach(function(room) {
-              Object.keys(msgData[room]).forEach(function(k) {
-                if (msgData[room][k].userId) userSet[msgData[room][k].userId] = true;
-              });
-            });
-            document.getElementById("stat-total").textContent = Object.keys(userSet).length;
-            allMessagesData = msgData;
-            renderRoomsList();
-            refreshUsersTable();
-          });
-        });
+    if (snapMsgs.exists()) {
+      Object.keys(snapMsgs.val()).forEach(function(r) {
+        allRoomsSet[r] = true;
+      });
+    }
+
+    if (snapPres.exists()) {
+      Object.keys(snapPres.val()).forEach(function(r) {
+        allRoomsSet[r] = true;
+      });
+    }
+
+    if (snapTyp.exists()) {
+      Object.keys(snapTyp.val()).forEach(function(r) {
+        allRoomsSet[r] = true;
+      });
+    }
+
+    if (snapSettings.exists()) {
+      Object.keys(snapSettings.val()).forEach(function(r) {
+        allRoomsSet[r] = true;
+      });
+    }
+
+    allRooms = Object.keys(allRoomsSet).sort();
+    allMessagesData = msgData;
+
+    document.getElementById("stat-rooms").textContent = allRooms.length;
+
+    var userSet = {};
+    Object.keys(msgData).forEach(function(room) {
+      Object.keys(msgData[room]).forEach(function(k) {
+        if (msgData[room][k].userId) {
+          userSet[msgData[room][k].userId] = true;
+        }
       });
     });
-  }
+    document.getElementById("stat-total").textContent = Object.keys(userSet).length;
+
+    renderRoomsList();
+    refreshUsersTable();
+  });
+}
 
   function refreshUsersTable(msgData) {
     if (msgData) allMessagesData = msgData;
