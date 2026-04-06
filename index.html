@@ -251,17 +251,13 @@
   <!-- CONFIGURAÇÃO -->
   <details style="font-size:12px;color:var(--muted);cursor:pointer">
     <summary style="list-style:none;cursor:pointer;font-family:var(--mono)">
-      🔐 Configurar sala
+      🔐 Senha da sala (Opcional)
     </summary>
 
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
 
       <!-- 🔐 SENHA -->
-      <input class="input-field" id="room-new-pass" type="password" placeholder="Senha da sala (opcional)"/>
-
-      <button onclick="saveRoomPass()" style="padding:8px;border-radius:10px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">
-        Salvar senha
-      </button> 
+      <input class="input-field" id="room-new-pass" type="password" placeholder="Senha da sala"/> 
 
       <!-- FEEDBACK -->
       <div id="room-pass-saved" style="display:none;font-size:12px;color:var(--green);font-family:var(--mono)">
@@ -978,10 +974,8 @@ function buildMessageRow(msg) {
 
     } else {
       db.ref("room_settings/" + room).update({
-        password: null,
-        private: null,
-        inviteHash: null
-      }).then(function() {
+          password: null
+        }).then(function() {
         document.getElementById("room-pass-saved").style.display = "block";
         setTimeout(function() {
           document.getElementById("room-pass-saved").style.display = "none";
@@ -998,6 +992,40 @@ function buildMessageRow(msg) {
       alert("Digite o nome da sala.");
       return;
     }
+
+    var room = val.toLowerCase().replace(/\s+/g, "-");
+
+    var newPass = document.getElementById("room-new-pass").value;
+    var passInput = document.getElementById("room-pass-input");
+    var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
+
+    document.getElementById("room-pass-error").style.display = "none";
+
+    // 🔐 SALVA AUTOMATICAMENTE SE DIGITAR SENHA NOVA
+    if (newPass) {
+      var hashedNew = await hashPassword(newPass);
+      await db.ref("room_settings/" + room + "/password").set(hashedNew);
+    }
+
+    db.ref("room_settings/" + room).once("value", async function(snap) {
+      var data = snap.val() || {};
+
+      if (data.password && !newPass) {
+        if (!enteredPass) {
+          document.getElementById("room-pass-error").style.display = "block";
+          return;
+        }
+
+        var enteredHash = await hashPassword(enteredPass);
+        if (enteredHash !== data.password) {
+          document.getElementById("room-pass-error").style.display = "block";
+          return;
+        }
+      }
+
+      startChat(room);
+    });
+  }
 
     var room = val.toLowerCase().replace(/\s+/g, "-");
     var passInput = document.getElementById("room-pass-input");
@@ -1099,9 +1127,15 @@ function buildMessageRow(msg) {
     } 
 
   function leaveRoom() {
-    cleanupListeners(); hide("chat-app"); show("room-screen");
+    cleanupListeners();
+    hide("chat-app");
+    show("room-screen");
+
     document.getElementById("room-pass-input").value = "";
+    document.getElementById("room-new-pass").value = "";
+    document.getElementById("room-input").value = "";
     document.getElementById("members-panel").classList.remove("open");
+
     hideRoomPass();
     resetUnread();
   }
