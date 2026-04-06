@@ -1118,7 +1118,7 @@ function attachRealtimeNewMessages() {
   if (newestLoadedTs == null) {
     childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts");
   } else {
-    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs + 1);
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs);
   }
 
   childAddedRef.on("child_added", function(snap) {
@@ -1193,12 +1193,11 @@ function loadOlderMessages() {
       var msgs = snapshotToSortedArray(snap);
 
       msgs = msgs.filter(function(msg) {
-        if (msg.ts < oldestLoadedTs) return true;
-        if (msg.ts > oldestLoadedTs) return false;
-        if (msg.ts < oldestLoadedTs) return true;
-        if (msg.ts === oldestLoadedTs && msg.id !== oldestLoadedKey) return true;
-        return false;
-      });
+      if (msg.ts < oldestLoadedTs) return true;
+      if (msg.ts > oldestLoadedTs) return false;
+      if (msg.ts === oldestLoadedTs && msg.id !== oldestLoadedKey) return true;
+      return false;
+    });
 
       msgs = msgs.filter(function(msg) {
         return !renderedIds[msg.id];
