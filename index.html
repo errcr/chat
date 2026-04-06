@@ -969,14 +969,7 @@ function buildMessageRow(msg) {
       if (!val) {
         alert("Digite o nome da sala.");
         return;
-      }
-
-      async function removeRoomPassword() {
-    var val = document.getElementById("room-input").value.trim();
-    if (!val) {
-      alert("Digite o nome da sala.");
-      return;
-    }
+      } 
 
     var room = val.toLowerCase().replace(/\s+/g, "-");
     var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
@@ -1051,7 +1044,6 @@ function buildMessageRow(msg) {
         document.getElementById("room-pass-error").style.display = "block";
         return;
       }
-    }
 
     startChat(room);
   }
