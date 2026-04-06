@@ -917,15 +917,19 @@ function refreshUsersTable() {
   try {
     console.log("Tentando apagar sala:", room);
 
-    await db.ref("messages/" + room).remove();
-    console.log("messages ok");
-
+    // 1. remove presença e digitação primeiro
     await db.ref("presence/" + room).remove();
     console.log("presence ok");
 
     await db.ref("typing/" + room).remove();
     console.log("typing ok");
 
+    // 2. remove mensagens
+    await db.ref("messages/" + room).remove();
+    console.log("messages ok");
+
+    // 3. por último remove room_settings
+    // isso dispara a expulsão automática nos clientes conectados
     await db.ref("room_settings/" + room).remove();
     console.log("room_settings ok");
 
@@ -947,6 +951,7 @@ function refreshUsersTable() {
     }
 
     renderRoomsList();
+    refreshUsersTable();
     alert("✅ Sala apagada com sucesso.");
   } catch (err) {
     console.error("Erro detalhado ao apagar sala:", room, err);

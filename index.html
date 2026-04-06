@@ -1011,6 +1011,7 @@ async function checkRoomPass() {
 
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
+  var roomSettingsListenerRef = null;
   var typingTimeout=null, isTyping=false, renderedIds={}, lastUserId=null;
 
   var PAGE_SIZE = 50;
@@ -1064,7 +1065,36 @@ async function checkRoomPass() {
     requestNotifPermission();
     listenBanStatus();
     attachMessagesScroll();
+    listenRoomState();
   }
+
+  function listenRoomState() {
+  if (roomSettingsListenerRef) {
+    roomSettingsListenerRef.off();
+    roomSettingsListenerRef = null;
+  }
+
+  roomSettingsListenerRef = db.ref("room_settings/" + myRoom);
+
+  roomSettingsListenerRef.on("value", function(snap) {
+    // se a sala foi apagada enquanto o usuário estava dentro
+    if (!snap.exists()) {
+      alert("⚠️ Esta sala foi apagada pelo administrador.");
+      leaveRoom();
+      return;
+    }
+
+    var data = snap.val() || {};
+
+    // condição extra mais detalhada:
+    // se por algum motivo a sala ficar sem dono válido, derruba também
+    if (!data.ownerUid) {
+      alert("⚠️ Esta sala ficou inválida e foi encerrada.");
+      leaveRoom();
+      return;
+    }
+  });
+}
 
   var banRef = null;
     function listenBanStatus() {
@@ -1098,6 +1128,10 @@ async function checkRoomPass() {
   }
 
   function cleanupListeners() {
+    if (roomSettingsListenerRef) {
+      roomSettingsListenerRef.off();
+      roomSettingsListenerRef = null;
+    }
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1114,6 +1148,7 @@ async function checkRoomPass() {
     loadingOlderMessages = false;
     hasMoreOldMessages = true;
   }
+
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
