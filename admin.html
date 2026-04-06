@@ -601,6 +601,19 @@
   var selectedRoom = null;
   var allMessagesData = {};
 
+  var ADMIN_PAGE_SIZE = 50;
+
+  var adminOldestTs = null;
+  var adminOldestKey = null;
+  var adminNewestTs = null;
+
+  var adminLoadingOlder = false;
+  var adminHasMore = true;
+
+  var adminChildAddedRef = null;
+  var adminChildChangedRef = null;
+  var adminRenderedIds = {};
+
   function initAdmin() {
     listenPresence();
     listenRooms();
@@ -633,22 +646,7 @@
     });
   }
 
-  var allRegisteredUsers = {}; // uid -> {name, email, lastSeen}
-
   function listenRooms() {
-    // Escuta usuários registrados
-    db.ref("users").on("value", function(snapUsers) {
-      allRegisteredUsers = {};
-      if (snapUsers.exists()) {
-        snapUsers.forEach(function(child) {
-          var uid = child.key;
-          var val = child.val();
-          if (val && val.name) allRegisteredUsers[uid] = val;
-        });
-      }
-      refreshUsersTable();
-    });
-
     db.ref("messages").on("value", function(snapMsgs) {
       var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
 
@@ -683,30 +681,17 @@
   function refreshUsersTable(msgData) {
     if (msgData) allMessagesData = msgData;
     var usersMap = {};
-
-    // 1. Usuários registrados no banco (todos que já logaram)
-    Object.keys(allRegisteredUsers).forEach(function(uid) {
-      var u = allRegisteredUsers[uid];
-      usersMap[uid] = { name: u.name, email: u.email || "", lastSeen: u.lastSeen || 0, msgCount: 0 };
-    });
-
-    // 2. Complementa com contagem de mensagens
     Object.keys(allMessagesData).forEach(function(room) {
       Object.keys(allMessagesData[room]).forEach(function(k) {
         var msg = allMessagesData[room][k];
         if (!msg.userId) return;
-        if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, email: "", lastSeen: 0, msgCount: 0 };
+        if (!usersMap[msg.userId]) usersMap[msg.userId] = { name: msg.name, msgCount: 0 };
         usersMap[msg.userId].msgCount++;
       });
     });
-
-    // 3. Complementa com presença (online agora)
     Object.keys(usersFromPresence).forEach(function(uid) {
-      if (!usersMap[uid]) usersMap[uid] = { name: usersFromPresence[uid].name, email: "", lastSeen: 0, msgCount: 0 };
+      if (!usersMap[uid]) usersMap[uid] = { name: usersFromPresence[uid].name, msgCount: 0 };
     });
-
-    // Atualiza contador total
-    document.getElementById("stat-total").textContent = Object.keys(usersMap).length;
     var tbody = document.getElementById("users-tbody");
     if (Object.keys(usersMap).length === 0) {
       tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:32px;font-family:var(--mono);font-size:13px">Nenhum usuário encontrado.</td></tr>';
@@ -733,8 +718,7 @@
       var nameDisplay = isBanned
         ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
         : escHtml(info.name);
-      var emailDisplay = info.email ? '<div class="user-email">'+escHtml(info.email)+'</div>' : '';
-      return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '"><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + nameDisplay + '</div>'+emailDisplay+'</div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + banBtn + '</td></tr>';
+      return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '"><td><div class="user-row-name"><div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div><div class="user-name">' + nameDisplay + '</div></div></div></td><td>' + statusHtml + '</td><td>' + roomHtml + '</td><td>' + countHtml + '</td><td>' + banBtn + '</td></tr>';
     }).join("");
   }
 
@@ -794,42 +778,205 @@
     });
   };
 
-  window.selectRoom = function(room) {
-    selectedRoom = room;
-    renderRoomsList();
-    if (activeRoomRef) { activeRoomRef.off(); activeRoomRef = null; }
-    var panel = document.getElementById("messages-panel");
-    panel.innerHTML = '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span><span class="msg-count">carregando...</span></div><div class="loading"><div class="sp"></div> Carregando mensagens...</div>';
-    activeRoomRef = db.ref("messages/" + room);
-    activeRoomRef.on("value", function(snap) {
-      if (!snap.exists()) {
-        panel.innerHTML = '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span></div><div class="empty-panel"><div class="icon">🛸</div><div>Nenhuma mensagem ainda.</div></div>';
-        return;
-      }
-      var msgs = Object.keys(snap.val()).map(function(k) {
-        return Object.assign({ id: k }, snap.val()[k]);
-      }).sort(function(a, b) { return a.ts - b.ts; });
-
-      var msgsHtml = msgs.map(function(msg) {
-        var color = colorFor(msg.name);
-        return '<div class="admin-msg">' +
-          '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(msg.name) + '</div>' +
-          '<div class="msg-content">' +
-            '<div class="msg-header">' +
-              '<span class="msg-author" style="color:' + color + '">' + escHtml(msg.name) + '</span>' +
-              '<span class="msg-ts">' + fmtTime(msg.ts) + '</span>' +
-            '</div>' +
-            '<div class="msg-text">' + (msg.image ? '<img src="'+msg.image+'" style="max-width:180px;max-height:180px;border-radius:8px;display:block;cursor:zoom-in" onclick="openAdminLightbox(this.src)"/>' : escHtml(msg.text || "")) + '</div>' +
-          '</div></div>';
-      }).join("");
-
-      panel.innerHTML = '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span><span class="msg-count">' + msgs.length + ' mensagem' + (msgs.length !== 1 ? "s" : "") + '</span></div>' +
-        '<div class="messages-list" id="msg-list">' + msgsHtml + '</div>';
-
-      var list = document.getElementById("msg-list");
-      if (list) requestAnimationFrame(function() { list.scrollTop = list.scrollHeight; });
+  function snapshotAdmin(snap) {
+    return Object.keys(snap.val()).map(function(k) {
+      return Object.assign({ id: k }, snap.val()[k]);
+    }).sort(function(a, b) {
+      if (a.ts !== b.ts) return a.ts - b.ts;
+      return a.id.localeCompare(b.id);
     });
-  };
+  }
+
+  function renderAdminMessages(msgs, prepend) {
+  var panel = document.getElementById("messages-panel");
+  var list = document.getElementById("msg-list");
+
+  if (!list) {
+    panel.innerHTML =
+      '<div class="messages-panel-header">' +
+        '<span class="room-tag">#' + escHtml(selectedRoom) + '</span>' +
+        '<span class="msg-count" id="admin-msg-count">0 mensagens</span>' +
+      '</div>' +
+      '<div class="messages-list" id="msg-list"></div>';
+    list = document.getElementById("msg-list");
+  }
+
+  var previousHeight = list.scrollHeight;
+
+  var html = msgs.filter(function(msg) {
+    if (adminRenderedIds[msg.id]) return false;
+    adminRenderedIds[msg.id] = true;
+    return true;
+  }).map(function(msg) {
+    var color = colorFor(msg.name);
+    return '<div class="admin-msg" data-msg-id="' + msg.id + '">' +
+      '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(msg.name) + '</div>' +
+      '<div class="msg-content">' +
+        '<div class="msg-header">' +
+          '<span class="msg-author" style="color:' + color + '">' + escHtml(msg.name) + '</span>' +
+          '<span class="msg-ts">' + fmtTime(msg.ts) + '</span>' +
+        '</div>' +
+        '<div class="msg-text">' +
+          (msg.image
+            ? '<img src="' + msg.image + '" style="max-width:180px;border-radius:8px" onclick="openAdminLightbox(this.src)"/>'
+            : escHtml(msg.text || "")) +
+        '</div>' +
+      '</div></div>';
+  }).join("");
+
+  if (!html) return;
+
+  if (prepend) {
+    list.insertAdjacentHTML("afterbegin", html);
+    requestAnimationFrame(function() {
+      list.scrollTop = list.scrollHeight - previousHeight;
+    });
+  } else {
+    var nearBottom = (list.scrollHeight - list.scrollTop - list.clientHeight) < 120;
+    list.insertAdjacentHTML("beforeend", html);
+    if (nearBottom) {
+      requestAnimationFrame(function() {
+        list.scrollTop = list.scrollHeight;
+      });
+    }
+  }
+
+  var countEl = document.getElementById("admin-msg-count");
+  if (countEl) countEl.textContent = Object.keys(adminRenderedIds).length + ' mensagens';
+}
+
+  function attachAdminScroll() {
+    var list = document.getElementById("msg-list");
+    if (!list) return;
+
+    list.addEventListener("scroll", function() {
+      if (list.scrollTop < 100) {
+        loadOlderAdmin();
+      }
+    });
+  }
+
+  function loadOlderAdmin() {
+    if (adminLoadingOlder || !adminHasMore) return;
+
+    adminLoadingOlder = true;
+
+    db.ref("messages/" + selectedRoom)
+      .orderByChild("ts")
+      .endAt(adminOldestTs)
+      .limitToLast(ADMIN_PAGE_SIZE + 20)
+      .once("value", function(snap) {
+
+        adminLoadingOlder = false;
+
+        if (!snap.exists()) {
+          adminHasMore = false;
+          return;
+        }
+
+        var msgs = snapshotAdmin(snap);
+
+        msgs = msgs.filter(function(msg) {
+          if (msg.ts < adminOldestTs) return true;
+          if (msg.ts === adminOldestTs && msg.id !== adminOldestKey) return true;
+          return false;
+        });
+
+        if (!msgs.length) {
+          adminHasMore = false;
+          return;
+        }
+
+        if (msgs.length > ADMIN_PAGE_SIZE) {
+          msgs = msgs.slice(msgs.length - ADMIN_PAGE_SIZE);
+        }
+
+        adminOldestTs = msgs[0].ts;
+        adminOldestKey = msgs[0].id;
+
+        renderAdminMessages(msgs, true);
+      });
+  }
+
+  function detachAdminListeners() {
+    if (adminChildAddedRef) {
+      adminChildAddedRef.off();
+      adminChildAddedRef = null;
+    }
+    if (adminChildChangedRef) {
+      adminChildChangedRef.off();
+      adminChildChangedRef = null;
+    }
+  }
+
+  function attachAdminRealtime(room) {
+    detachAdminListeners();
+
+    adminChildAddedRef = db.ref("messages/" + room)
+      .orderByChild("ts")
+      .startAt(adminNewestTs);
+
+    adminChildAddedRef.on("child_added", function(snap) {
+      var msg = Object.assign({ id: snap.key }, snap.val());
+      renderAdminMessages([msg], false);
+
+      if (msg.ts > adminNewestTs) {
+        adminNewestTs = msg.ts;
+      }
+    });
+
+    adminChildChangedRef = db.ref("messages/" + room);
+    adminChildChangedRef.on("child_changed", function(snap) {
+      // aqui pode atualizar reações depois
+    });
+  }
+
+  window.selectRoom = function(room) {
+      selectedRoom = room;
+      renderRoomsList();
+
+      detachAdminListeners();
+
+      var panel = document.getElementById("messages-panel");
+      panel.innerHTML =
+        '<div class="messages-panel-header">' +
+          '<span class="room-tag">#' + escHtml(room) + '</span>' +
+          '<span class="msg-count">carregando...</span>' +
+        '</div>' +
+        '<div class="loading"><div class="sp"></div> Carregando mensagens...</div>';
+
+      adminOldestTs = null;
+      adminOldestKey = null;
+      adminNewestTs = null;
+      adminHasMore = true;
+      adminRenderedIds = {};
+
+      db.ref("messages/" + room)
+        .orderByChild("ts")
+        .limitToLast(ADMIN_PAGE_SIZE)
+        .once("value", function(snap) {
+
+          if (!snap.exists()) {
+            panel.innerHTML =
+              '<div class="messages-panel-header"><span class="room-tag">#' + escHtml(room) + '</span></div>' +
+              '<div class="empty-panel"><div class="icon">🛸</div><div>Nenhuma mensagem ainda.</div></div>';
+            attachAdminRealtime(room);
+            return;
+          }
+
+          var msgs = snapshotAdmin(snap);
+
+          adminOldestTs = msgs[0].ts;
+          adminOldestKey = msgs[0].id;
+          adminNewestTs = msgs[msgs.length - 1].ts;
+          adminHasMore = msgs.length === ADMIN_PAGE_SIZE;
+
+          renderAdminMessages(msgs, false);
+
+          attachAdminRealtime(room);
+          attachAdminScroll();
+        });
+    };
 
   function renderOnlineTab() {
     var grid = document.getElementById("online-grid");
