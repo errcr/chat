@@ -706,8 +706,7 @@
           userSet[msgData[room][k].userId] = true;
         }
       });
-    });
-    document.getElementById("stat-total").textContent = Object.keys(usersData).length;
+    }); 
 
     renderRoomsList();
     refreshUsersTable();
@@ -719,9 +718,7 @@ function listenUsers() {
     usersData = snap.exists() ? snap.val() : {};
     refreshUsersTable();
   });
-}
-
-setTimeout(refreshUsersTable, 500);
+} 
 
 function refreshUsersTable() {
   var usersMap = {};
