@@ -923,45 +923,72 @@ function buildMessageRow(msg) {
     document.getElementById("room-pass-error").style.display = "none";
   }
 
-  function saveRoomPass() {
+  async function saveRoomPass() {
     var val  = document.getElementById("room-input").value.trim();
     var room = val.toLowerCase().replace(/\s+/g,"-");
-    if (!room) { alert("Digite o nome da sala primeiro."); return; }
+
+    if (!room) {
+      alert("Digite o nome da sala primeiro.");
+      return;
+    }
+
     var pass = document.getElementById("room-new-pass").value;
     var ref  = db.ref("room_settings/"+room+"/password");
+
     if (pass) {
-      ref.set(pass).then(function() {
+      var hashed = await hashPassword(pass);
+
+      ref.set(hashed).then(function() {
         document.getElementById("room-pass-saved").style.display = "block";
-        setTimeout(function(){ document.getElementById("room-pass-saved").style.display="none"; }, 2000);
+        setTimeout(function(){
+          document.getElementById("room-pass-saved").style.display="none";
+        }, 2000);
+
         checkRoomPass();
       });
+
     } else {
       ref.remove().then(function() {
         document.getElementById("room-pass-saved").style.display = "block";
-        setTimeout(function(){ document.getElementById("room-pass-saved").style.display="none"; }, 2000);
+        setTimeout(function(){
+          document.getElementById("room-pass-saved").style.display="none";
+        }, 2000);
+
         hideRoomPass();
       });
     }
   }
 
-  function enterRoom() {
+  async function enterRoom() {
     var val  = document.getElementById("room-input").value.trim();
-    if (!val) { alert("Digite o nome da sala."); return; }
+    if (!val) {
+      alert("Digite o nome da sala.");
+      return;
+    }
+
     var room = val.toLowerCase().replace(/\s+/g,"-");
     var passInput = document.getElementById("room-pass-input");
     var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
+
     document.getElementById("room-pass-error").style.display = "none";
 
-    db.ref("room_settings/"+room+"/password").once("value", function(snap) {
-      var storedPass = snap.val();
-      if (storedPass) {
-        if (!enteredPass || enteredPass !== storedPass) {
+    db.ref("room_settings/"+room+"/password").once("value", async function(snap) {
+      var storedHash = snap.val();
+
+      if (storedHash) {
+        if (!enteredPass) {
           document.getElementById("room-pass-error").style.display = "block";
-          document.getElementById("room-pass-label").style.display = "block";
-          document.getElementById("room-pass-input").style.display = "block";
+          return;
+        }
+
+        var enteredHash = await hashPassword(enteredPass);
+
+        if (enteredHash !== storedHash) {
+          document.getElementById("room-pass-error").style.display = "block";
           return;
         }
       }
+
       startChat(room);
     });
   }
@@ -1314,6 +1341,14 @@ function snapshotToSortedArray(snap) {
   });
 }
 
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
 function enviarMensagem(text) {
   var input = document.getElementById("msg-input");
 
@@ -1381,29 +1416,7 @@ function enviarMensagem(text) {
     cancelReply();
     document.getElementById("send-btn").disabled = true;
   }
-}
-
-function addStrike() {
-  if (!window.strikes) window.strikes = 0;
-
-  window.strikes++;
-
-  console.log("STRIKE:", window.strikes);
-
-  if (window.strikes === 3) {
-    applyMute(15);
-    return;
-  }
-
-  if (window.strikes === 5) {
-    applyMute(60);
-    return;
-  }
-
-  if (window.strikes >= 7) {
-    autoBanUser();
-  }
-}
+} 
 
 function autoBanUser() {
   alert("🚫 Sua conta foi marcada por spam. Saindo da conta...");
@@ -1418,105 +1431,27 @@ function autoBanUser() {
     auth.signOut();
   });
 }
+ 
+function addStrike() {
+  if (!window.strikes) window.strikes = 0;
 
-function isMuted() {
-  return false;
+  window.strikes++;
+
+  console.log("STRIKE:", window.strikes);
+
+  if (window.strikes === 3) {
+    applyMute(15); // 15 segundos
+  }
+
+  if (window.strikes === 5) {
+    applyMute(60); // 1 minuto
+  }
+
+  if (window.strikes >= 7) {
+    autoBanUser();
+  }
 }
-
-function applyMute(seconds) {
-  var until = Date.now() + (seconds * 1000);
-
-  db.ref("muted/" + myId).set({
-    name: myName,
-    until: until,
-    reason: "spam"
-  }).then(function() {
-    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
-  }).catch(function(err) {
-    alert("Erro ao aplicar mute: " + err.message);
-  });
-}
-
-  function enviarMensagem() {
-    var input = document.getElementById("msg-input");
-    var msg = input.value;
-
-    var messageData = {
-      text: msg,
-      name: myName,
-      userId: myId,
-      ts: Date.now()
-    };
-
-    if (pendingReply) {
-      messageData.replyTo = {
-        name: pendingReply.name,
-        text: pendingReply.text
-      };
-    }
-
-    if (pendingImg) {
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        messageData.image = e.target.result;
-        db.ref("messages/" + myRoom).push(messageData);
-      };
-      reader.readAsDataURL(pendingImg);
-    } else {
-      db.ref("messages/" + myRoom).push(messageData);
-    }
-
-    input.value = "";
-    pendingImg = null;
-    cancelReply();
-    document.getElementById("send-btn").disabled = true;
-  }
-
-  function addStrike() {
-    if (!window.strikes) window.strikes = 0;
-
-    window.strikes++;
-
-    console.log("STRIKE:", window.strikes);
-
-    if (window.strikes === 3) {
-      applyMute(15); // 15 segundos
-    }
-
-    if (window.strikes === 5) {
-      applyMute(60); // 1 minuto
-    }
-
-    if (window.strikes >= 7) {
-      autoBanUser();
-    }
-  }
-
-  function autoBanUser() {
-    alert("🚫 Você foi banido por spam!");
-
-    db.ref("banned/" + myId).set({
-      name: myName,
-      bannedAt: Date.now(),
-      reason: "spam"
-    });
-
-    auth.signOut();
-  }
-
-  // 🔇 Sistema de mute
-  function isMuted() {
-    var muteUntil = localStorage.getItem("mute_until");
-
-    if (!muteUntil) return false;
-
-    if (Date.now() > parseInt(muteUntil)) {
-      localStorage.removeItem("mute_until");
-      return false;
-    }
-
-    return true;
-  }
+  
 
   function applyMute(seconds) {
     var until = Date.now() + (seconds * 1000);
