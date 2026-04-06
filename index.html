@@ -17,7 +17,21 @@
       --bg:#f4f3ff; --surface:#ffffff; --surface2:#ede9fe;
       --border:#ddd6fe; --text:#1e1b4b; --muted:#6d6a85;
     }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; transition:background .3s,color .3s; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      overflow: hidden;
+    }
+    body.auth-mode,
+    body.room-mode {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     /* Auth gradient bg */
     #auth-gradient { display:none; position:fixed; inset:0; z-index:0; background:linear-gradient(135deg,#667eea 0%,#764ba2 45%,#f093fb 100%); }
     body.auth-mode #auth-gradient { display:block; }
@@ -72,7 +86,14 @@
     body.room-mode details summary { color:rgba(255,255,255,.7); }
     body.room-mode #room-pass-saved { color:#a7f3d0; }
     body.room-mode #room-pass-error { color:#fecaca; }
-    #chat-app { display:none; width:100%; height:100vh; flex-direction:column; }
+    #chat-app {
+      display: none;
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      height: 100dvh;
+      flex-direction: column;
+    }
     .chat-header { padding:14px 20px; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; overflow:hidden; }
     .chat-header h1 { font-size:16px; font-weight:800; white-space:nowrap; }
     .chat-header .room { color:var(--muted); font-size:12px; font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px; }
@@ -81,7 +102,7 @@
     .dot { width:7px; height:7px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
     .leave-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:12px; font-family:var(--mono); padding:5px 10px; border-radius:8px; transition:color .2s,background .2s; }
     .leave-btn:hover { color:var(--red); background:#f8717115; }
-    #messages { flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; gap:2px; }
+    #messages { flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; overflow-y: auto; gap:2px; }
     #messages::-webkit-scrollbar { width:4px; }
     #messages::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
     .msg-row { display:flex; gap:10px; align-items:flex-end; animation:fadeUp .2s ease; }
@@ -124,7 +145,10 @@
 
     /* ── Mobile ── */
     @media (max-width: 480px) {
-      .chat-header { padding:10px 12px; gap:8px; }
+      .chat-header {
+        padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
+        gap: 8px;
+      }
       .chat-header h1 { font-size:14px; }
       .chat-header .room { font-size:10px; max-width:70px; }
       .header-right { gap:4px; }
@@ -136,7 +160,10 @@
       #messages { padding:12px 10px; }
       .msg-body { max-width:82%; }
       .bubble { font-size:14px; padding:8px 12px; }
-      .input-bar { padding:10px 10px; gap:6px; }
+      .input-bar {
+        padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+        gap: 6px;
+      }
       .input-inner { padding:8px 10px; gap:8px; }
       .user-chip span { display:none; }
       .user-chip { padding:5px 7px; }
@@ -928,164 +955,35 @@ function buildMessageRow(msg) {
       var btn = document.getElementById("auth-btn");
       btn.disabled=false; btn.textContent=isRegisterMode?"Criar conta":"Entrar";
     }
-  });
-
+  }); 
+ 
   async function checkRoomPass() {
-    var val = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g, "-");
-    var currentUid = auth.currentUser ? auth.currentUser.uid : null;
+  var val = document.getElementById("room-input").value.trim();
+  var room = val.toLowerCase().replace(/\s+/g, "-");
+  var currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
-    if (!room) {
-      hideRoomPass();
-      hideOwnerSettings();
-      return;
-    }
-
-    var snap = await db.ref("room_settings/" + room).once("value");
-    var data = snap.val() || {};
-
-    if (data.password) {
-      document.getElementById("room-pass-label").style.display = "block";
-      document.getElementById("room-pass-input").style.display = "block";
-    } else {
-      hideRoomPass();
-    }
-
-    if (data.ownerUid && currentUid && data.ownerUid === currentUid) {
-      showOwnerSettings();
-    } else {
-      hideOwnerSettings();
-    }
-  }
-
-  function hideRoomPass() {
-    document.getElementById("room-pass-label").style.display = "none";
-    document.getElementById("room-pass-input").style.display = "none";
-    document.getElementById("room-pass-error").style.display = "none";
-  }
-
-  async function enterRoom() {
-      var val = document.getElementById("room-input").value.trim();
-      if (!val) {
-        alert("Digite o nome da sala.");
-        return;
-      }
-
-      async function removeRoomPassword() {
-    var val = document.getElementById("room-input").value.trim();
-    if (!val) {
-      alert("Digite o nome da sala.");
-      return;
-    }
-
-    var room = val.toLowerCase().replace(/\s+/g, "-");
-    var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
-
-    var snap = await db.ref("room_settings/" + room).once("value");
-    var data = snap.val() || {};
-
-    if (!snap.exists()) {
-      alert("Essa sala não existe.");
-      return;
-    }
-
-    if (data.ownerUid !== currentUid) {
-      alert("Só o dono da sala pode remover a senha.");
-      return;
-    }
-
-    await db.ref("room_settings/" + room + "/password").remove();
-
-    document.getElementById("room-new-pass").value = "";
-    document.getElementById("room-pass-input").value = "";
+  if (!room) {
     hideRoomPass();
-    alert("🔓 Senha removida com sucesso.");
+    hideOwnerSettings();
+    return;
   }
 
-    var room = val.toLowerCase().replace(/\s+/g, "-");
-    var newPass = document.getElementById("room-new-pass").value.trim();
-    var passInput = document.getElementById("room-pass-input");
-    var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
+  var snap = await db.ref("room_settings/" + room).once("value");
+  var data = snap.val() || {};
 
-    document.getElementById("room-pass-error").style.display = "none";
-
-    var snap = await db.ref("room_settings/" + room).once("value");
-    var data = snap.val() || {};
-    var currentUid = myId || auth.currentUser.uid;
-
-    // criar sala nova
-    if (!snap.exists()) {
-      var payload = {
-        ownerUid: currentUid,
-        ownerName: myName || auth.currentUser.displayName || "Usuário",
-        createdAt: Date.now()
-      };
-
-      if (newPass) {
-        payload.password = await hashPassword(newPass);
-      }
-
-      await db.ref("room_settings/" + room).set(payload);
-      startChat(room);
-      return;
-    }
-
-    // dono alterando senha
-    if (data.ownerUid === currentUid && newPass) {
-      await db.ref("room_settings/" + room + "/password")
-        .set(await hashPassword(newPass));
-
-      startChat(room);
-      return;
-    }
-
-    // entrar em sala com senha
-    if (data.password) {
-      if (!enteredPass) {
-        document.getElementById("room-pass-error").style.display = "block";
-        return;
-      }
-
-      var enteredHash = await hashPassword(enteredPass);
-      if (enteredHash !== data.password) {
-        document.getElementById("room-pass-error").style.display = "block";
-        return;
-      }
-    }
-
-    startChat(room);
-  }
-
-  async function removeRoomPassword() {
-    var val = document.getElementById("room-input").value.trim();
-    if (!val) {
-      alert("Digite o nome da sala.");
-      return;
-    }
-
-    var room = val.toLowerCase().replace(/\s+/g, "-");
-    var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
-
-    var snap = await db.ref("room_settings/" + room).once("value");
-    var data = snap.val() || {};
-
-    if (!snap.exists()) {
-      alert("Essa sala não existe.");
-      return;
-    }
-
-    if (data.ownerUid !== currentUid) {
-      alert("Só o dono da sala pode remover a senha.");
-      return;
-    }
-
-    await db.ref("room_settings/" + room + "/password").remove();
-
-    document.getElementById("room-new-pass").value = "";
-    document.getElementById("room-pass-input").value = "";
+  if (data.password) {
+    document.getElementById("room-pass-label").style.display = "block";
+    document.getElementById("room-pass-input").style.display = "block";
+  } else {
     hideRoomPass();
-    alert("🔓 Senha removida com sucesso.");
   }
+
+  if (!snap.exists() || (data.ownerUid && currentUid && data.ownerUid === currentUid)) {
+    showOwnerSettings();
+  } else {
+    hideOwnerSettings();
+  }
+}
 
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
@@ -1239,7 +1137,7 @@ function buildMessageRow(msg) {
       attachRealtimeNewMessages();
     });
 }
-
+ 
 function hideOwnerSettings() {
   document.getElementById("room-owner-settings").style.display = "none";
   document.getElementById("room-owner-badge").style.display = "none";
@@ -1290,6 +1188,37 @@ function attachRealtimeNewMessages() {
 
     renderReactions(snap.key, msg.reactions || {});
   });
+}
+
+async function removeRoomPassword() {
+  var val = document.getElementById("room-input").value.trim();
+  if (!val) {
+    alert("Digite o nome da sala.");
+    return;
+  }
+
+  var room = val.toLowerCase().replace(/\s+/g, "-");
+  var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
+
+  var snap = await db.ref("room_settings/" + room).once("value");
+  var data = snap.val() || {};
+
+  if (!snap.exists()) {
+    alert("Essa sala não existe.");
+    return;
+  }
+
+  if (data.ownerUid !== currentUid) {
+    alert("Só o dono da sala pode remover a senha.");
+    return;
+  }
+
+  await db.ref("room_settings/" + room + "/password").remove();
+
+  document.getElementById("room-new-pass").value = "";
+  document.getElementById("room-pass-input").value = "";
+  hideRoomPass();
+  alert("🔓 Senha removida com sucesso.");
 }
 
 function detachMessageRealtime() {
@@ -1380,6 +1309,70 @@ function snapshotToSortedArray(snap) {
       return a.id.localeCompare(b.id);
     });
   }
+ 
+  async function enterRoom() {
+  var val = document.getElementById("room-input").value.trim();
+  if (!val) {
+    alert("Digite o nome da sala.");
+    return;
+  }
+
+  var room = val.toLowerCase().replace(/\s+/g, "-");
+  var newPass = document.getElementById("room-new-pass").value.trim();
+  var passInput = document.getElementById("room-pass-input");
+  var enteredPass = passInput.style.display !== "none" ? passInput.value.trim() : "";
+
+  document.getElementById("room-pass-error").style.display = "none";
+
+  var snap = await db.ref("room_settings/" + room).once("value");
+  var data = snap.val() || {};
+  var currentUid = myId || (auth.currentUser && auth.currentUser.uid);
+
+  if (!currentUid) {
+    alert("Usuário não autenticado.");
+    return;
+  }
+
+  // sala nova
+  if (!snap.exists()) {
+    var payload = {
+      ownerUid: currentUid,
+      ownerName: myName || auth.currentUser.displayName || "Usuário",
+      createdAt: Date.now()
+    };
+
+    if (newPass) {
+      payload.password = await hashPassword(newPass);
+    }
+
+    await db.ref("room_settings/" + room).set(payload);
+    startChat(room);
+    return;
+  }
+
+  // dono alterando/adicionando senha
+  if (data.ownerUid === currentUid && newPass) {
+    await db.ref("room_settings/" + room + "/password").set(await hashPassword(newPass));
+    startChat(room);
+    return;
+  }
+
+  // sala com senha
+  if (data.password) {
+    if (!enteredPass) {
+      document.getElementById("room-pass-error").style.display = "block";
+      return;
+    }
+
+    var enteredHash = await hashPassword(enteredPass);
+    if (enteredHash !== data.password) {
+      document.getElementById("room-pass-error").style.display = "block";
+      return;
+    }
+  }
+
+  startChat(room);
+}
 
   function listenTyping() {
     typingListenerRef = db.ref("typing/"+myRoom);
