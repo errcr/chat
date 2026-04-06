@@ -1257,48 +1257,95 @@ function snapshotToSortedArray(snap) {
 
   function sendMessage() {
     var input = document.getElementById("msg-input");
-    var text  = input.value.trim();
-    if (!text && !pendingImg) return;
+    var msg = input.value;
 
-    var msgBase = { name:myName, userId:myId, ts:Date.now() };
-    if (myEmoji) msgBase.emoji = myEmoji;
-    if (pendingReply) { msgBase.replyTo = { name:pendingReply.name, text:pendingReply.text }; }
+    if (!msg.trim() && !pendingImg) return;
 
-    clearTypingStatus();
-    input.value=""; input.style.height="22px";
-    document.getElementById("send-btn").disabled = true;
-    cancelReply();
+    // 🔐 Anti-spam por tempo
+    if (!window.lastMsgTime) window.lastMsgTime = 0;
+    var now = Date.now();
+
+    if (now - window.lastMsgTime < 800) {
+      alert("⚠️ Muito rápido!");
+      addStrike();
+      return;
+    }
+
+    window.lastMsgTime = now;
+
+    // 🔐 Controle de spam inteligente
+    if (!window.msgCount) window.msgCount = 0;
+    window.msgCount++;
+
+    if (window.msgCount > 6) {
+      alert("🚫 Spam detectado!");
+      addStrike();
+      return;
+    }
+
+    setTimeout(function() {
+      window.msgCount = 0;
+    }, 4000);
+
+    // 🔐 limite de tamanho
+    if (msg.length > 300) {
+      alert("Mensagem muito grande!");
+      return;
+    }
+
+    var messageData = {
+      text: msg,
+      name: myName,
+      userId: myId,
+      ts: Date.now()
+    };
+
+    if (pendingReply) {
+      messageData.replyTo = {
+        name: pendingReply.name,
+        text: pendingReply.text
+      };
+    }
 
     if (pendingImg) {
-      var file = pendingImg;
-      removeImage();
-      var bar = document.getElementById("img-preview-bar");
-      bar.style.display = "flex";
-      bar.innerHTML = '<span style="font-size:12px;font-family:var(--mono);color:var(--muted)">Enviando imagem...</span>';
-      var formData = new FormData();
-      formData.append("image", file);
-      fetch("https://api.imgbb.com/1/upload?key=" + IMGBB_KEY, {
-        method: "POST",
-        body: formData
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        bar.style.display = "none";
-        bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
-        if (!d.success) { alert("Erro ao enviar imagem."); return; }
-        var url = d.data.url;
-        var msg = Object.assign({}, msgBase, { image: url, text: "" });
-        db.ref("messages/"+myRoom).push(msg);
-      })
-      .catch(function(e){
-        bar.style.display = "none";
-        bar.innerHTML = '<img id="img-preview" src="" alt="preview"/><button class="rm" onclick="removeImage()">✕</button>';
-        alert("Erro ao enviar imagem: " + e.message);
-      });
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        messageData.image = e.target.result;
+        db.ref("messages/" + myRoom).push(messageData);
+      };
+      reader.readAsDataURL(pendingImg);
     } else {
-      var msg = Object.assign({}, msgBase, { text: text });
-      db.ref("messages/"+myRoom).push(msg);
+      db.ref("messages/" + myRoom).push(messageData);
     }
+
+    input.value = "";
+    pendingImg = null;
+    cancelReply();
+    document.getElementById("send-btn").disabled = true;
+  }
+
+  function addStrike() {
+    if (!window.strikes) window.strikes = 0;
+
+    window.strikes++;
+
+    console.log("STRIKE:", window.strikes);
+
+    if (window.strikes >= 3) {
+      autoBanUser();
+    }
+  }
+
+  function autoBanUser() {
+    alert("🚫 Você foi banido por spam!");
+
+    db.ref("banned/" + myId).set({
+      name: myName,
+      bannedAt: Date.now(),
+      reason: "spam"
+    });
+
+    auth.signOut();
   }
 
   function setTypingStatus(active) {
