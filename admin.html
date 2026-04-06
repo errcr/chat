@@ -462,7 +462,7 @@
           </tr>
         </thead>
         <tbody id="users-tbody">
-          <tr><td colspan="3"><div class="loading"><div class="sp"></div> Carregando...</div></td></tr>
+          <tr><td colspan="5"><div class="loading"><div class="sp"></div> Carregando...</div></td></tr>
         </tbody>
       </table>
     </div>
@@ -853,19 +853,33 @@ function refreshUsersTable() {
 
   window.deleteRoom = function(room) {
     if (!confirm('Apagar a sala #' + room + ' e todas as suas mensagens? Esta ação não pode ser desfeita.')) return;
+
     Promise.all([
       db.ref("messages/" + room).remove(),
       db.ref("presence/" + room).remove(),
       db.ref("typing/" + room).remove(),
       db.ref("room_settings/" + room).remove()
-    ]).then(function() {
+    ])
+    .then(function() {
       allRooms = allRooms.filter(function(r){ return r !== room; });
+
       if (selectedRoom === room) {
         selectedRoom = null;
-        document.getElementById("messages-panel").innerHTML = '<div class="empty-panel"><div class="icon">💬</div><div>Selecione uma sala ao lado</div></div>';
-        if (activeRoomRef) { activeRoomRef.off(); activeRoomRef = null; }
+        document.getElementById("messages-panel").innerHTML =
+          '<div class="empty-panel"><div class="icon">💬</div><div>Selecione uma sala ao lado</div></div>';
+
+        if (activeRoomRef) {
+          activeRoomRef.off();
+          activeRoomRef = null;
+        }
       }
+
       renderRoomsList();
+      alert("✅ Sala apagada com sucesso.");
+    })
+    .catch(function(err) {
+      console.error("Erro ao apagar sala:", err);
+      alert("❌ Erro ao apagar sala: " + err.message);
     });
   };
 
