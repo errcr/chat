@@ -246,14 +246,7 @@
     <input class="input-field" id="room-pass-input" type="password" placeholder="••••••••" style="display:none"/>
     <div id="room-pass-error" style="display:none;font-size:12px;color:var(--red);font-family:var(--mono);padding:0 2px">
       Senha incorreta.
-    </div>
-
-    <!-- 🎟️ CONVITE (NOVO) -->
-    <span class="input-label" id="room-invite-label" style="display:none">Código do convite</span>
-    <input class="input-field" id="room-invite-input" type="text" placeholder="Código de convite" style="display:none"/>
-    <div id="room-invite-error" style="display:none;font-size:12px;color:var(--red);font-family:var(--mono);padding:0 2px">
-      Convite inválido.
-    </div>
+    </div> 
 
   <!-- CONFIGURAÇÃO -->
   <details style="font-size:12px;color:var(--muted);cursor:pointer">
@@ -268,14 +261,7 @@
 
       <button onclick="saveRoomPass()" style="padding:8px;border-radius:10px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">
         Salvar senha
-      </button>
-
-      <!-- 🎟️ CONVITE PRIVADO -->
-      <input class="input-field" id="room-invite-new" type="text" placeholder="Código de convite da sala privada"/>
-
-      <button onclick="savePrivateRoom()" style="padding:8px;border-radius:10px;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">
-        Criar sala privada
-      </button>
+      </button> 
 
       <!-- FEEDBACK -->
       <div id="room-pass-saved" style="display:none;font-size:12px;color:var(--green);font-family:var(--mono)">
@@ -838,39 +824,7 @@ function buildMessageRow(msg) {
     if (Notification.permission === "default") {
       Notification.requestPermission();
     }
-  }
-
-  async function savePrivateRoom() {
-    var val = document.getElementById("room-input").value.trim();
-    var room = val.toLowerCase().replace(/\s+/g, "-");
-
-    if (!room) {
-      alert("Digite o nome da sala primeiro.");
-      return;
-    }
-
-    var invite = document.getElementById("room-invite-new").value.trim();
-
-    if (!invite) {
-      alert("Digite um código de convite.");
-      return;
-    }
-
-    var inviteHash = await hashPassword(invite);
-
-    db.ref("room_settings/" + room).update({
-      private: true,
-      inviteHash: inviteHash
-    }).then(function() {
-      document.getElementById("room-pass-saved").style.display = "block";
-      document.getElementById("room-pass-saved").textContent = "✓ Sala privada salva!";
-      setTimeout(function() {
-        document.getElementById("room-pass-saved").style.display = "none";
-        document.getElementById("room-pass-saved").textContent = "✓ Senha salva!";
-      }, 2000);
-      checkRoomPass();
-    });
-  }
+  } 
 
   function sendPushNotif(name, text) {
     if (!("Notification" in window)) return;
@@ -977,7 +931,6 @@ function buildMessageRow(msg) {
 
     if (!room) {
       hideRoomPass();
-      hideInviteField();
       return;
     }
 
@@ -990,20 +943,7 @@ function buildMessageRow(msg) {
       } else {
         hideRoomPass();
       }
-
-      if (data.private && data.inviteHash) {
-        document.getElementById("room-invite-label").style.display = "block";
-        document.getElementById("room-invite-input").style.display = "block";
-      } else {
-        hideInviteField();
-      }
     });
-  }
-
-  function hideInviteField() {
-    document.getElementById("room-invite-label").style.display = "none";
-    document.getElementById("room-invite-input").style.display = "none";
-    document.getElementById("room-invite-error").style.display = "none";
   }
 
   function hideRoomPass() {
@@ -1048,7 +988,6 @@ function buildMessageRow(msg) {
         }, 2000);
 
         hideRoomPass();
-        hideInviteField();
       });
     }
   }
@@ -1062,13 +1001,9 @@ function buildMessageRow(msg) {
 
     var room = val.toLowerCase().replace(/\s+/g, "-");
     var passInput = document.getElementById("room-pass-input");
-    var inviteInput = document.getElementById("room-invite-input");
-
     var enteredPass = passInput.style.display !== "none" ? passInput.value : null;
-    var enteredInvite = inviteInput.style.display !== "none" ? inviteInput.value.trim() : null;
 
     document.getElementById("room-pass-error").style.display = "none";
-    document.getElementById("room-invite-error").style.display = "none";
 
     db.ref("room_settings/" + room).once("value", async function(snap) {
       var data = snap.val() || {};
@@ -1082,19 +1017,6 @@ function buildMessageRow(msg) {
         var enteredHash = await hashPassword(enteredPass);
         if (enteredHash !== data.password) {
           document.getElementById("room-pass-error").style.display = "block";
-          return;
-        }
-      }
-
-      if (data.private && data.inviteHash) {
-        if (!enteredInvite) {
-          document.getElementById("room-invite-error").style.display = "block";
-          return;
-        }
-
-        var inviteHash = await hashPassword(enteredInvite);
-        if (inviteHash !== data.inviteHash) {
-          document.getElementById("room-invite-error").style.display = "block";
           return;
         }
       }
@@ -1636,10 +1558,7 @@ function addStrike() {
     }
   }
 
-  document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("room-invite-input").addEventListener("keydown", function(e) {
-      if (e.key === "Enter") enterRoom();
-    });
+  document.addEventListener("DOMContentLoaded", function() { 
     document.addEventListener("click",      unlockAudio, { once: true });
     document.addEventListener("touchstart", unlockAudio, { once: true });
     document.addEventListener("keydown",    unlockAudio, { once: true });
