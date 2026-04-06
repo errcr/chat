@@ -570,6 +570,11 @@
   // ── Auth state ──
   auth.onAuthStateChanged(function(user) {
     if (user && user.email === ADMIN_EMAIL) {
+      db.ref("users/" + user.uid).update({
+        name: user.displayName || user.email.split("@")[0],
+        email: user.email,
+        createdAt: Date.now()
+      });
       document.getElementById("login-screen").style.display = "none";
       document.getElementById("admin-panel").style.display  = "flex";
       document.getElementById("admin-email-label").textContent = user.email;
@@ -701,7 +706,7 @@
         }
       });
     });
-    document.getElementById("stat-total").textContent = Object.keys(userSet).length;
+    document.getElementById("stat-total").textContent = Object.keys(usersData).length;
 
     renderRoomsList();
     refreshUsersTable();
@@ -714,6 +719,8 @@ function listenUsers() {
     refreshUsersTable();
   });
 }
+
+setTimeout(refreshUsersTable, 500);
 
 function refreshUsersTable() {
   var usersMap = {};
