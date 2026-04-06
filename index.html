@@ -242,32 +242,31 @@
     <input class="input-field" id="room-input" type="text" placeholder="Nome da sala" oninput="checkRoomPass()"/>
 
     <!-- 🔐 SENHA -->
-    <span class="input-label" id="room-pass-label" style="display:none">Senha da sala</span>
+    <span class="input-label" id="room-pass-label" style="display:none">Senha para entrar</span>
     <input class="input-field" id="room-pass-input" type="password" placeholder="••••••••" style="display:none"/>
     <div id="room-pass-error" style="display:none;font-size:12px;color:var(--red);font-family:var(--mono);padding:0 2px">
       Senha incorreta.
     </div> 
+    <div id="room-owner-badge" style="display:none;font-size:12px;color:#fde68a;font-family:var(--mono);padding:0 2px">
+      👑 Você é o dono desta sala
+    </div>
 
   <!-- CONFIGURAÇÃO -->
-  <details style="font-size:12px;color:var(--muted);cursor:pointer">
+  <details id="room-owner-settings" style="display:none;font-size:12px;color:var(--muted);cursor:pointer">
     <summary style="list-style:none;cursor:pointer;font-family:var(--mono)">
-      🔐 Senha da sala (Opcional)
+      🔐 Gerenciar senha da sala
     </summary>
 
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <input class="input-field" id="room-new-pass" type="password" placeholder="Nova senha da sala"/>
 
-      <!-- 🔐 SENHA -->
-      <input class="input-field" id="room-new-pass" type="password" placeholder="Senha da sala"/> 
-
-      <!-- FEEDBACK -->
       <div id="room-pass-saved" style="display:none;font-size:12px;color:var(--green);font-family:var(--mono)">
         ✓ Configuração salva!
       </div>
-
     </div>
   </details>
 
-    <button class="btn-primary" onclick="enterRoom()">Entrar na sala</button>
+  <button class="btn-primary" onclick="enterRoom()">Entrar na sala</button>
   </div>
 
   <button class="btn-secondary" onclick="logout()">Sair da conta</button>
@@ -921,25 +920,32 @@ function buildMessageRow(msg) {
     }
   });
 
-  function checkRoomPass() {
+  async function checkRoomPass() {
     var val = document.getElementById("room-input").value.trim();
     var room = val.toLowerCase().replace(/\s+/g, "-");
+    var currentUid = auth.currentUser ? auth.currentUser.uid : null;
 
     if (!room) {
       hideRoomPass();
+      hideOwnerSettings();
       return;
     }
 
-    db.ref("room_settings/" + room).once("value", function(snap) {
-      var data = snap.val() || {};
+    var snap = await db.ref("room_settings/" + room).once("value");
+    var data = snap.val() || {};
 
-      if (data.password) {
-        document.getElementById("room-pass-label").style.display = "block";
-        document.getElementById("room-pass-input").style.display = "block";
-      } else {
-        hideRoomPass();
-      }
-    });
+    if (data.password) {
+      document.getElementById("room-pass-label").style.display = "block";
+      document.getElementById("room-pass-input").style.display = "block";
+    } else {
+      hideRoomPass();
+    }
+
+    if (data.ownerUid && currentUid && data.ownerUid === currentUid) {
+      showOwnerSettings();
+    } else {
+      hideOwnerSettings();
+    }
   }
 
   function hideRoomPass() {
@@ -1105,6 +1111,7 @@ function buildMessageRow(msg) {
     document.getElementById("members-panel").classList.remove("open");
 
     hideRoomPass();
+    hideOwnerSettings();
     resetUnread();
   }
 
@@ -1171,6 +1178,17 @@ function buildMessageRow(msg) {
       scrollBottom(true);
       attachRealtimeNewMessages();
     });
+}
+
+function hideOwnerSettings() {
+  document.getElementById("room-owner-settings").style.display = "none";
+  document.getElementById("room-owner-badge").style.display = "none";
+  document.getElementById("room-new-pass").value = "";
+}
+
+function showOwnerSettings() {
+  document.getElementById("room-owner-settings").style.display = "block";
+  document.getElementById("room-owner-badge").style.display = "block";
 }
 
 function attachRealtimeNewMessages() {
