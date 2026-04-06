@@ -918,16 +918,32 @@
 
     adminChildAddedRef.on("child_added", function(snap) {
       var msg = Object.assign({ id: snap.key }, snap.val());
+
+      if (adminRenderedIds[msg.id]) return;
+
       renderAdminMessages([msg], false);
 
-      if (msg.ts > adminNewestTs) {
+      if (adminNewestTs == null || msg.ts > adminNewestTs) {
         adminNewestTs = msg.ts;
       }
     });
 
     adminChildChangedRef = db.ref("messages/" + room);
     adminChildChangedRef.on("child_changed", function(snap) {
-      // aqui pode atualizar reações depois
+      if (!adminRenderedIds[snap.key]) return;
+
+      var msg = snap.val();
+      if (!msg) return;
+
+      var row = document.querySelector('.admin-msg[data-msg-id="' + snap.key + '"]');
+      if (!row) return;
+
+      var msgText = row.querySelector(".msg-text");
+      if (!msgText) return;
+
+      msgText.innerHTML = msg.image
+        ? '<img src="' + msg.image + '" style="max-width:180px;border-radius:8px" onclick="openAdminLightbox(this.src)"/>'
+        : escHtml(msg.text || "");
     });
   }
 
@@ -972,9 +988,8 @@
           adminHasMore = msgs.length === ADMIN_PAGE_SIZE;
 
           renderAdminMessages(msgs, false);
-
-          attachAdminRealtime(room);
           attachAdminScroll();
+          attachAdminRealtime(room); 
         });
     };
 
