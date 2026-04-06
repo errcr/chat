@@ -1091,10 +1091,10 @@ function buildMessageRow(msg) {
 
       if (!snap.exists()) {
         container.innerHTML = '<div id="empty-state"><div class="empty-icon">🛸</div><div>Nenhuma mensagem ainda.</div><div>Seja o primeiro a falar!</div></div>';
-        oldestLoadedTs = msgs[0].ts;
-        oldestLoadedKey = msgs[0].id;
-        newestLoadedTs = msgs[msgs.length - 1].ts;
-        hasMoreOldMessages = msgs.length === PAGE_SIZE;
+        oldestLoadedTs = null;
+        oldestLoadedKey = null;
+        newestLoadedTs = null;
+        hasMoreOldMessages = false;
         attachRealtimeNewMessages();
         return;
       }
@@ -1102,6 +1102,7 @@ function buildMessageRow(msg) {
       var msgs = snapshotToSortedArray(snap);
 
       oldestLoadedTs = msgs[0].ts;
+      oldestLoadedKey = msgs[0].id;
       newestLoadedTs = msgs[msgs.length - 1].ts;
       hasMoreOldMessages = msgs.length === PAGE_SIZE;
 
@@ -1117,7 +1118,7 @@ function attachRealtimeNewMessages() {
   if (newestLoadedTs == null) {
     childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts");
   } else {
-    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs);
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs + 1);
   }
 
   childAddedRef.on("child_added", function(snap) {
@@ -1194,7 +1195,9 @@ function loadOlderMessages() {
       msgs = msgs.filter(function(msg) {
         if (msg.ts < oldestLoadedTs) return true;
         if (msg.ts > oldestLoadedTs) return false;
-        return msg.id < oldestLoadedKey;
+        if (msg.ts < oldestLoadedTs) return true;
+        if (msg.ts === oldestLoadedTs && msg.id !== oldestLoadedKey) return true;
+        return false;
       });
 
       msgs = msgs.filter(function(msg) {
