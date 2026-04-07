@@ -1308,7 +1308,7 @@ function refreshUsersTable() {
         var textEl = el.querySelector(".msg-text");
         if (textEl && !textEl.querySelector("img") && q) {
           var raw = textEl.textContent;
-          var re  = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\]/g, "\$&") + ")", "gi");
+          var re  = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
           textEl.innerHTML = escHtml(raw).replace(re, "<mark>$1</mark>");
         } else if (textEl && !textEl.querySelector("img")) {
           textEl.textContent = textEl.textContent;
