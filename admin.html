@@ -1123,13 +1123,16 @@ function refreshUsersTable() {
   window.confirmUnban = confirmUnban;
 
   function confirmMute() {
-    if (!modalUid || !selectedMuteSecs) return;
+    var chip = document.querySelector(".mute-chip.selected");
+    if (!modalUid || !chip) {
+      alert("Selecione uma duração antes de silenciar.");
+      return;
+    }
     var uid   = modalUid;
     var name  = modalName;
-    var secs  = selectedMuteSecs;
+    var secs  = parseInt(chip.getAttribute("data-secs"), 10);
     var until = Date.now() + secs * 1000;
     closeUserModal();
-    selectedMuteSecs = 0;
     db.ref("muted/" + uid).set({ name: name, until: until, reason: "admin" });
   }
   window.confirmMute = confirmMute;
