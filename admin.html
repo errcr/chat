@@ -25,12 +25,8 @@
     }
 
     body.light {
-      --bg: #f4f3ff;
-      --surface: #ffffff;
-      --surface2: #ede9fe;
-      --border: #ddd6fe;
-      --text: #1e1b4b;
-      --muted: #6d6a85;
+      --bg: #f4f3ff; --surface: #ffffff; --surface2: #ede9fe;
+      --border: #ddd6fe; --text: #1e1b4b; --muted: #6d6a85;
     }
     body {
       font-family: var(--font);
@@ -148,12 +144,8 @@
       transition: color 0.2s, border-color 0.2s;
     }
     .logout-btn:hover { color: var(--red); border-color: var(--red); }
-    .theme-btn {
-      background: none; border: none; font-size: 18px;
-      cursor: pointer; padding: 4px 6px; border-radius: 8px;
-      transition: background 0.2s; line-height: 1;
-    }
-    .theme-btn:hover { background: var(--surface2); }
+    .theme-btn { background:none;border:none;font-size:18px;cursor:pointer;padding:4px 6px;border-radius:8px;transition:background .2s;line-height:1; }
+    .theme-btn:hover { background:var(--surface2); }
 
     /* Tabs */
     .tabs {
@@ -403,6 +395,48 @@
       .content { padding: 16px; }
       .tabs { padding: 12px 16px 0; overflow-x: auto; }
     }
+
+    /* ── Modal de ação ── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: #0008; z-index: 50;
+      align-items: center; justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px;
+      width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; gap: 16px;
+      animation: fadeUp 0.2s ease;
+    }
+    .modal-title { font-size: 17px; font-weight: 800; }
+    .modal-sub   { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: -8px; }
+    .modal-actions { display: flex; flex-direction: column; gap: 8px; }
+    .modal-btn {
+      width: 100%; padding: 11px 14px; border-radius: 10px;
+      font-family: var(--font); font-size: 14px; font-weight: 700;
+      cursor: pointer; border: none; text-align: left;
+      transition: opacity 0.15s;
+    }
+    .modal-btn:hover { opacity: 0.85; }
+    .modal-btn.ban   { background: #f8717122; color: var(--red);   border: 1px solid #f8717144; }
+    .modal-btn.mute  { background: #fbbf2422; color: var(--yellow); border: 1px solid #fbbf2444; }
+    .modal-btn.unban { background: #34d39922; color: var(--green); border: 1px solid #34d39944; }
+    .modal-btn.cancel{ background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .modal-mute-opts { display: none; flex-direction: column; gap: 6px; }
+    .modal-mute-opts.open { display: flex; }
+    .mute-duration {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .mute-chip {
+      padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+      cursor: pointer; border: 1px solid #fbbf2444;
+      background: #fbbf2418; color: var(--yellow);
+      font-family: var(--mono); transition: background 0.15s;
+    }
+    .mute-chip:hover { background: #fbbf2435; }
+    .mute-chip.selected { background: #fbbf2450; border-color: var(--yellow); }
   </style>
 </head>
 <body style="visibility:hidden">
@@ -434,7 +468,7 @@
     <span class="badge">Admin</span>
     <div class="topbar-right">
       <span class="admin-info" id="admin-email-label"></span>
-      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Tema claro/escuro">🌙</button>
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Tema">🌙</button>
       <button class="logout-btn" onclick="doLogout()">Sair</button>
     </div>
   </div>
@@ -532,18 +566,6 @@
   var auth = firebase.auth();
   var db   = firebase.database();
 
-  // Timeout de segurança
-  var authTimeout = setTimeout(function() {
-    document.body.style.visibility = "visible";
-    document.getElementById("login-screen").style.display = "flex";
-    document.getElementById("admin-panel").style.display  = "none";
-    var err = document.getElementById("error-msg");
-    err.textContent = "Tempo limite de autenticação. Tente novamente.";
-    err.style.display = "block";
-  }, 5000);
-  auth.onAuthStateChanged(function() { clearTimeout(authTimeout); });
-
-  // ── Tema ──
   var isDark = localStorage.getItem("admin-theme") !== "light";
   function applyTheme() {
     document.body.classList.toggle("light", !isDark);
@@ -556,6 +578,16 @@
     applyTheme();
   };
   applyTheme();
+
+  var authTimeout = setTimeout(function() {
+    document.body.style.visibility = "visible";
+    document.getElementById("login-screen").style.display = "flex";
+    document.getElementById("admin-panel").style.display  = "none";
+    var err = document.getElementById("error-msg");
+    err.textContent = "Tempo limite de autenticação. Tente novamente.";
+    err.style.display = "block";
+  }, 5000);
+  auth.onAuthStateChanged(function() { clearTimeout(authTimeout); });
 
   // ── Helpers ──
   var COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
@@ -670,11 +702,21 @@
 
   var usersData = {}; 
 
+  var mutedUsers = {};
+
   function initAdmin() {
     listenPresence();
     listenRooms();
     listenBanned();
     listenUsers();
+    listenMuted();
+  }
+
+  function listenMuted() {
+    db.ref("muted").on("value", function(snap) {
+      mutedUsers = snap.exists() ? snap.val() : {};
+      refreshUsersTable();
+    });
   }
 
   function listenBanned() {
@@ -897,9 +939,15 @@ function refreshUsersTable() {
 
     var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
 
-    var banBtn = isBanned
-      ? '<button onclick="unbanUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#34d39920;border:1px solid #34d39940;border-radius:8px;color:#34d399;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">✓ Desbanir</button>'
-      : '<button onclick="banUser(\'' + uid + '\',\'' + escHtml(info.name) + '\')" style="background:#f8717120;border:1px solid #f8717140;border-radius:8px;color:#f87171;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">🚫 Banir</button>';
+    var isMuted = !!(mutedUsers && mutedUsers[uid] && mutedUsers[uid].until > Date.now());
+    var banBtn = '<button onclick="openUserModal(\'' + uid + '\',\'' + escHtml(info.name) + '\',\'' + escHtml(info.email || "") + '\',' + isBanned + ',' + isMuted + ')" style="' +
+      (isBanned
+        ? 'background:#34d39920;border:1px solid #34d39940;color:#34d399;'
+        : isMuted
+          ? 'background:#fbbf2420;border:1px solid #fbbf2440;color:#fbbf24;'
+          : 'background:#f8717120;border:1px solid #f8717140;color:#f87171;') +
+      'border-radius:8px;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">' +
+      (isBanned ? '✓ Desbanir' : isMuted ? '🔇 Mutado' : '🚫 Ação') + '</button>';
 
     var nameDisplay = isBanned
       ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
@@ -942,21 +990,109 @@ function refreshUsersTable() {
     }).join("");
   }
 
-  window.banUser = function(uid, name) {
-    if (!confirm('Banir ' + name + '? O usuário será impedido de entrar no chat.')) return;
-    db.ref("banned/" + uid).set({ name: name, bannedAt: Date.now() });
-    // Remove da presença em todas as salas
+  // ── Modal de ação de usuário ──
+  var modalUid  = null;
+  var modalName = null;
+
+  window.openUserModal = function(uid, name, email, isBanned, isMuted) {
+    modalUid  = uid;
+    modalName = name;
+
+    document.getElementById("modal-user-name").textContent  = name;
+    document.getElementById("modal-user-email").textContent = email || uid;
+
+    var actions = document.getElementById("modal-actions");
+    actions.innerHTML = "";
+
+    if (isBanned) {
+      // Só mostra desbanir
+      actions.innerHTML =
+        '<button class="modal-btn unban" onclick="confirmUnban()">✓ Desbanir este usuário</button>' +
+        '<button class="modal-btn cancel" onclick="closeUserModal()">Cancelar</button>';
+    } else {
+      // Ban + mute + cancelar
+      actions.innerHTML =
+        '<button class="modal-btn ban"  onclick="confirmBan()">🚫 Banir permanentemente</button>' +
+        '<button class="modal-btn mute" onclick="toggleMuteOpts()">🔇 Silenciar temporariamente</button>' +
+        '<div class="modal-mute-opts" id="mute-opts">' +
+          '<div style="font-size:12px;color:var(--muted);font-family:var(--mono)">Duração do silêncio:</div>' +
+          '<div class="mute-duration">' +
+            '<span class="mute-chip" onclick="selectMuteDuration(this, 60)">1 min</span>' +
+            '<span class="mute-chip" onclick="selectMuteDuration(this, 300)">5 min</span>' +
+            '<span class="mute-chip" onclick="selectMuteDuration(this, 900)">15 min</span>' +
+            '<span class="mute-chip" onclick="selectMuteDuration(this, 3600)">1 hora</span>' +
+            '<span class="mute-chip" onclick="selectMuteDuration(this, 86400)">1 dia</span>' +
+          '</div>' +
+          '<button class="modal-btn mute" id="apply-mute-btn" onclick="confirmMute()" style="display:none">Silenciar</button>' +
+        '</div>' +
+        (isMuted
+          ? '<button class="modal-btn unban" onclick="confirmUnmute()">🔊 Remover silêncio</button>'
+          : '') +
+        '<button class="modal-btn cancel" onclick="closeUserModal()">Cancelar</button>';
+    }
+
+    document.getElementById("user-action-modal").classList.add("open");
+  };
+
+  window.closeUserModal = function() {
+    document.getElementById("user-action-modal").classList.remove("open");
+    modalUid = modalName = null;
+  };
+
+  document.getElementById("user-action-modal").addEventListener("click", function(e) {
+    if (e.target === this) closeUserModal();
+  });
+
+  var selectedMuteSecs = 0;
+
+  window.toggleMuteOpts = function() {
+    document.getElementById("mute-opts").classList.toggle("open");
+  };
+
+  window.selectMuteDuration = function(el, secs) {
+    document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
+    el.classList.add("selected");
+    selectedMuteSecs = secs;
+    document.getElementById("apply-mute-btn").style.display = "block";
+  };
+
+  window.confirmBan = function() {
+    if (!modalUid) return;
+    closeUserModal();
+    db.ref("banned/" + modalUid).set({ name: modalName, bannedAt: Date.now() });
     db.ref("presence").once("value", function(snap) {
       if (!snap.exists()) return;
       Object.keys(snap.val()).forEach(function(room) {
-        if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
+        if (snap.val()[room][modalUid]) db.ref("presence/" + room + "/" + modalUid).remove();
       });
     });
   };
 
+  window.confirmUnban = function() {
+    if (!modalUid) return;
+    closeUserModal();
+    db.ref("banned/" + modalUid).remove();
+  };
+
+  window.confirmMute = function() {
+    if (!modalUid || !selectedMuteSecs) return;
+    closeUserModal();
+    var until = Date.now() + selectedMuteSecs * 1000;
+    db.ref("muted/" + modalUid).set({ name: modalName, until: until, reason: "admin" });
+  };
+
+  window.confirmUnmute = function() {
+    if (!modalUid) return;
+    closeUserModal();
+    db.ref("muted/" + modalUid).remove();
+  };
+
+  window.banUser = function(uid, name) {
+    openUserModal(uid, name, "", false, false);
+  };
+
   window.unbanUser = function(uid, name) {
-    if (!confirm('Desbanir ' + name + '?')) return;
-    db.ref("banned/" + uid).remove();
+    openUserModal(uid, name, "", true, false);
   };
 
   window.deleteRoom = async function(room) {
@@ -1253,5 +1389,16 @@ function refreshUsersTable() {
     document.getElementById("admin-lightbox").style.display = "flex";
   }
 </script>
+
+<!-- MODAL DE AÇÃO DE USUÁRIO -->
+<div class="modal-backdrop" id="user-action-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-user-name"></div>
+    <div class="modal-sub"  id="modal-user-email"></div>
+    <div class="modal-actions" id="modal-actions">
+      <!-- preenchido via JS -->
+    </div>
+  </div>
+</div>
 </body>
 </html>
