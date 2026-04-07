@@ -424,19 +424,7 @@
     .modal-btn.mute  { background: #fbbf2422; color: var(--yellow); border: 1px solid #fbbf2444; }
     .modal-btn.unban { background: #34d39922; color: var(--green); border: 1px solid #34d39944; }
     .modal-btn.cancel{ background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
-    .modal-mute-opts { display: none; flex-direction: column; gap: 6px; }
-    .modal-mute-opts.open { display: flex; }
-    .mute-duration {
-      display: flex; flex-wrap: wrap; gap: 6px;
-    }
-    .mute-chip {
-      padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
-      cursor: pointer; border: 1px solid #fbbf2444;
-      background: #fbbf2418; color: var(--yellow);
-      font-family: var(--mono); transition: background 0.15s;
-    }
-    .mute-chip:hover { background: #fbbf2435; }
-    .mute-chip.selected { background: #fbbf2450; border-color: var(--yellow); }
+
   </style>
 </head>
 <body style="visibility:hidden">
@@ -716,21 +704,11 @@
 
   var usersData = {}; 
 
-  var mutedUsers = {};
-
   function initAdmin() {
     listenPresence();
     listenRooms();
     listenBanned();
     listenUsers();
-    listenMuted();
-  }
-
-  function listenMuted() {
-    db.ref("muted").on("value", function(snap) {
-      mutedUsers = snap.exists() ? snap.val() : {};
-      refreshUsersTable();
-    });
   }
 
   function listenBanned() {
@@ -953,19 +931,15 @@ function refreshUsersTable() {
 
     var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
 
-    var isMuted = !!(mutedUsers && mutedUsers[uid] && mutedUsers[uid].until > Date.now());
     var btnColor = isBanned
       ? 'background:#34d39920;border:1px solid #34d39940;color:#34d399;'
-      : isMuted
-        ? 'background:#fbbf2420;border:1px solid #fbbf2440;color:#fbbf24;'
-        : 'background:#f8717120;border:1px solid #f8717140;color:#f87171;';
-    var btnLabel = isBanned ? '✓ Desbanir' : isMuted ? '🔇 Mutado' : '🚫 Ação';
+      : 'background:#f8717120;border:1px solid #f8717140;color:#f87171;';
+    var btnLabel = isBanned ? '✓ Desbanir' : '🚫 Banir';
     var banBtn = '<button class="action-btn"' +
-      ' data-uid="'     + escAttr(uid) + '"' +
-      ' data-name="'    + escAttr(info.name) + '"' +
-      ' data-email="'   + escAttr(info.email || "") + '"' +
-      ' data-banned="'  + (isBanned ? "1" : "0") + '"' +
-      ' data-muted="'   + (isMuted  ? "1" : "0") + '"' +
+      ' data-uid="'    + escAttr(uid) + '"' +
+      ' data-name="'   + escAttr(info.name) + '"' +
+      ' data-email="'  + escAttr(info.email || "") + '"' +
+      ' data-banned="' + (isBanned ? "1" : "0") + '"' +
       ' style="' + btnColor + 'border-radius:8px;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">' +
       btnLabel + '</button>';
 
@@ -1014,38 +988,22 @@ function refreshUsersTable() {
   var modalUid  = null;
   var modalName = null;
 
-  window.openUserModal = function(uid, name, email, isBanned, isMuted) {
+  window.openUserModal = function(uid, name, email, isBanned) {
     modalUid  = uid;
     modalName = name;
-    isBanned = isBanned === true || isBanned === "true";
-    isMuted  = isMuted  === true || isMuted  === "true";
+    isBanned  = isBanned === true || isBanned === "true";
 
     document.getElementById("modal-user-name").textContent  = name;
     document.getElementById("modal-user-email").textContent = email || uid;
 
     var actions = document.getElementById("modal-actions");
-    actions.innerHTML = "";
-
     if (isBanned) {
       actions.innerHTML =
-        '<button class="modal-btn unban"   data-action="unban">✓ Desbanir este usuário</button>' +
-        '<button class="modal-btn cancel"  data-action="cancel">Cancelar</button>';
+        '<button class="modal-btn unban"  data-action="unban">✓ Desbanir este usuário</button>' +
+        '<button class="modal-btn cancel" data-action="cancel">Cancelar</button>';
     } else {
       actions.innerHTML =
-        '<button class="modal-btn ban"     data-action="ban">🚫 Banir permanentemente</button>' +
-        '<button class="modal-btn mute"    data-action="toggle-mute">🔇 Silenciar temporariamente</button>' +
-        '<div class="modal-mute-opts" id="mute-opts">' +
-          '<div style="font-size:12px;color:var(--muted);font-family:var(--mono)">Duração do silêncio:</div>' +
-          '<div class="mute-duration">' +
-            '<span class="mute-chip" data-action="duration" data-secs="60">1 min</span>' +
-            '<span class="mute-chip" data-action="duration" data-secs="300">5 min</span>' +
-            '<span class="mute-chip" data-action="duration" data-secs="900">15 min</span>' +
-            '<span class="mute-chip" data-action="duration" data-secs="3600">1 hora</span>' +
-            '<span class="mute-chip" data-action="duration" data-secs="86400">1 dia</span>' +
-          '</div>' +
-          '<button class="modal-btn mute" id="apply-mute-btn" data-action="confirm-mute" style="display:none">Silenciar</button>' +
-        '</div>' +
-        (isMuted ? '<button class="modal-btn unban" data-action="unmute">🔊 Remover silêncio</button>' : '') +
+        '<button class="modal-btn ban"    data-action="ban">🚫 Banir permanentemente</button>' +
         '<button class="modal-btn cancel" data-action="cancel">Cancelar</button>';
     }
 
@@ -1064,22 +1022,13 @@ function refreshUsersTable() {
   var modalEl = document.getElementById("user-action-modal");
 
   modalEl.addEventListener("click", function(e) {
-    if (e.target === this) closeUserModal();
+    if (e.target === this) { closeUserModal(); return; }
     var el = e.target.closest("[data-action]");
     if (!el) return;
     var action = el.getAttribute("data-action");
-    if      (action === "cancel")       { closeUserModal(); }
-    else if (action === "ban")          { confirmBan(); }
-    else if (action === "unban")        { confirmUnban(); }
-    else if (action === "unmute")       { confirmUnmute(); }
-    else if (action === "confirm-mute") { confirmMute(); }
-    else if (action === "toggle-mute")  { document.getElementById("mute-opts").classList.toggle("open"); }
-    else if (action === "duration") {
-      document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
-      el.classList.add("selected");
-      selectedMuteSecs = parseInt(el.getAttribute("data-secs"), 10);
-      document.getElementById("apply-mute-btn").style.display = "block";
-    }
+    if      (action === "cancel") { closeUserModal(); }
+    else if (action === "ban")    { confirmBan(); }
+    else if (action === "unban")  { confirmUnban(); }
   });
 
   // Event delegation para botões de ação da tabela
@@ -1091,59 +1040,10 @@ function refreshUsersTable() {
       var name   = btn.getAttribute("data-name");
       var email  = btn.getAttribute("data-email");
       var banned = btn.getAttribute("data-banned") === "1";
-      var muted  = btn.getAttribute("data-muted")  === "1";
-      openUserModal(uid, name, email, banned, muted);
+      openUserModal(uid, name, email, banned);
     });
   });
 
-  var selectedMuteSecs = 0;
-
-  // toggleMuteOpts e selectMuteDuration movidos para event delegation
-
-  function confirmBan() {
-    if (!modalUid) return;
-    var uid = modalUid, name = modalName;
-    closeUserModal();
-    db.ref("banned/" + uid).set({ name: name, bannedAt: Date.now() });
-    db.ref("presence").once("value", function(snap) {
-      if (!snap.exists()) return;
-      Object.keys(snap.val()).forEach(function(room) {
-        if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
-      });
-    });
-  }
-  window.confirmBan = confirmBan;
-
-  function confirmUnban() {
-    if (!modalUid) return;
-    var uid = modalUid;
-    closeUserModal();
-    db.ref("banned/" + uid).remove();
-  }
-  window.confirmUnban = confirmUnban;
-
-  function confirmMute() {
-    var chip = document.querySelector(".mute-chip.selected");
-    if (!modalUid || !chip) {
-      alert("Selecione uma duração antes de silenciar.");
-      return;
-    }
-    var uid   = modalUid;
-    var name  = modalName;
-    var secs  = parseInt(chip.getAttribute("data-secs"), 10);
-    var until = Date.now() + secs * 1000;
-    closeUserModal();
-    db.ref("muted/" + uid).set({ name: name, until: until, reason: "admin" });
-  }
-  window.confirmMute = confirmMute;
-
-  function confirmUnmute() {
-    if (!modalUid) return;
-    var uid = modalUid;
-    closeUserModal();
-    db.ref("muted/" + uid).remove();
-  }
-  window.confirmUnmute = confirmUnmute;
 
   window.banUser = function(uid, name) {
     openUserModal(uid, name, "", false, false);
