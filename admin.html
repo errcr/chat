@@ -777,11 +777,18 @@ function listenRooms() {
       var snapSettings = results[3];
 
       var msgData = snapMsgs.exists() ? snapMsgs.val() : {};
+      var settingsData = snapSettings.exists() ? snapSettings.val() : {};
       var allRoomsSet = {};
 
+      // Fonte primária: room_settings (sala existe se foi criada)
+      Object.keys(settingsData).forEach(function(r) {
+        allRoomsSet[r] = true;
+      });
+
+      // Mensagens: só adiciona se não estiver sendo deletada
+      // (nó vazio = deleção em andamento, ignora)
       if (snapMsgs.exists()) {
         Object.keys(snapMsgs.val()).forEach(function(r) {
-          // ignora sala se o nó de mensagens existe mas está vazio
           var roomMsgs = snapMsgs.val()[r];
           if (roomMsgs && Object.keys(roomMsgs).length > 0) {
             allRoomsSet[r] = true;
@@ -789,23 +796,26 @@ function listenRooms() {
         });
       }
 
+      // presence e typing só adicionam salas que já estão em room_settings
       if (snapPres.exists()) {
         Object.keys(snapPres.val()).forEach(function(r) {
-          allRoomsSet[r] = true;
+          if (settingsData[r]) allRoomsSet[r] = true;
         });
       }
 
       if (snapTyp.exists()) {
         Object.keys(snapTyp.val()).forEach(function(r) {
-          allRoomsSet[r] = true;
+          if (settingsData[r]) allRoomsSet[r] = true;
         });
       }
 
-      if (snapSettings.exists()) {
-        Object.keys(snapSettings.val()).forEach(function(r) {
-          allRoomsSet[r] = true;
-        });
-      }
+      // Remove salas que estão em allRooms local mas não mais no Firebase
+      // (deleção já confirmada localmente)
+      Object.keys(allRoomsSet).forEach(function(r) {
+        if (allRooms.indexOf(r) === -1 && !settingsData[r]) {
+          delete allRoomsSet[r];
+        }
+      });
 
       allRooms = Object.keys(allRoomsSet).sort();
       allMessagesData = msgData;
