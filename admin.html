@@ -606,6 +606,9 @@
   function escHtml(s) {
     return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
   }
+  function escAttr(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
   function show(id) { document.getElementById(id).style.display = "flex"; }
   function hide(id) { document.getElementById(id).style.display = "none"; }
 
@@ -940,14 +943,20 @@ function refreshUsersTable() {
     var countHtml = '<span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--accent2)">' + info.msgCount + '</span>';
 
     var isMuted = !!(mutedUsers && mutedUsers[uid] && mutedUsers[uid].until > Date.now());
-    var banBtn = '<button onclick="openUserModal(\'' + uid + '\',\'' + escHtml(info.name) + '\',\'' + escHtml(info.email || "") + '\',' + isBanned + ',' + isMuted + ')" style="' +
-      (isBanned
-        ? 'background:#34d39920;border:1px solid #34d39940;color:#34d399;'
-        : isMuted
-          ? 'background:#fbbf2420;border:1px solid #fbbf2440;color:#fbbf24;'
-          : 'background:#f8717120;border:1px solid #f8717140;color:#f87171;') +
-      'border-radius:8px;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">' +
-      (isBanned ? '✓ Desbanir' : isMuted ? '🔇 Mutado' : '🚫 Ação') + '</button>';
+    var btnColor = isBanned
+      ? 'background:#34d39920;border:1px solid #34d39940;color:#34d399;'
+      : isMuted
+        ? 'background:#fbbf2420;border:1px solid #fbbf2440;color:#fbbf24;'
+        : 'background:#f8717120;border:1px solid #f8717140;color:#f87171;';
+    var btnLabel = isBanned ? '✓ Desbanir' : isMuted ? '🔇 Mutado' : '🚫 Ação';
+    var banBtn = '<button class="action-btn"' +
+      ' data-uid="'     + escAttr(uid) + '"' +
+      ' data-name="'    + escAttr(info.name) + '"' +
+      ' data-email="'   + escAttr(info.email || "") + '"' +
+      ' data-banned="'  + (isBanned ? "1" : "0") + '"' +
+      ' data-muted="'   + (isMuted  ? "1" : "0") + '"' +
+      ' style="' + btnColor + 'border-radius:8px;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">' +
+      btnLabel + '</button>';
 
     var nameDisplay = isBanned
       ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
@@ -1047,6 +1056,18 @@ function refreshUsersTable() {
   document.addEventListener("DOMContentLoaded", function() {
     document.getElementById("user-action-modal").addEventListener("click", function(e) {
       if (e.target === this) closeUserModal();
+    });
+
+    // Event delegation para botões de ação da tabela
+    document.getElementById("users-tbody").addEventListener("click", function(e) {
+      var btn = e.target.closest(".action-btn");
+      if (!btn) return;
+      var uid     = btn.getAttribute("data-uid");
+      var name    = btn.getAttribute("data-name");
+      var email   = btn.getAttribute("data-email");
+      var banned  = btn.getAttribute("data-banned") === "1";
+      var muted   = btn.getAttribute("data-muted")  === "1";
+      openUserModal(uid, name, email, banned, muted);
     });
   });
 
