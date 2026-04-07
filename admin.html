@@ -1016,30 +1016,26 @@ function refreshUsersTable() {
     actions.innerHTML = "";
 
     if (isBanned) {
-      // Só mostra desbanir
       actions.innerHTML =
-        '<button class="modal-btn unban" onclick="confirmUnban()">✓ Desbanir este usuário</button>' +
-        '<button class="modal-btn cancel" onclick="closeUserModal()">Cancelar</button>';
+        '<button class="modal-btn unban"   data-action="unban">✓ Desbanir este usuário</button>' +
+        '<button class="modal-btn cancel"  data-action="cancel">Cancelar</button>';
     } else {
-      // Ban + mute + cancelar
       actions.innerHTML =
-        '<button class="modal-btn ban"  onclick="confirmBan()">🚫 Banir permanentemente</button>' +
-        '<button class="modal-btn mute" onclick="toggleMuteOpts()">🔇 Silenciar temporariamente</button>' +
+        '<button class="modal-btn ban"     data-action="ban">🚫 Banir permanentemente</button>' +
+        '<button class="modal-btn mute"    data-action="toggle-mute">🔇 Silenciar temporariamente</button>' +
         '<div class="modal-mute-opts" id="mute-opts">' +
           '<div style="font-size:12px;color:var(--muted);font-family:var(--mono)">Duração do silêncio:</div>' +
           '<div class="mute-duration">' +
-            '<span class="mute-chip" onclick="selectMuteDuration(this, 60)">1 min</span>' +
-            '<span class="mute-chip" onclick="selectMuteDuration(this, 300)">5 min</span>' +
-            '<span class="mute-chip" onclick="selectMuteDuration(this, 900)">15 min</span>' +
-            '<span class="mute-chip" onclick="selectMuteDuration(this, 3600)">1 hora</span>' +
-            '<span class="mute-chip" onclick="selectMuteDuration(this, 86400)">1 dia</span>' +
+            '<span class="mute-chip" data-action="duration" data-secs="60">1 min</span>' +
+            '<span class="mute-chip" data-action="duration" data-secs="300">5 min</span>' +
+            '<span class="mute-chip" data-action="duration" data-secs="900">15 min</span>' +
+            '<span class="mute-chip" data-action="duration" data-secs="3600">1 hora</span>' +
+            '<span class="mute-chip" data-action="duration" data-secs="86400">1 dia</span>' +
           '</div>' +
-          '<button class="modal-btn mute" id="apply-mute-btn" onclick="confirmMute()" style="display:none">Silenciar</button>' +
+          '<button class="modal-btn mute" id="apply-mute-btn" data-action="confirm-mute" style="display:none">Silenciar</button>' +
         '</div>' +
-        (isMuted
-          ? '<button class="modal-btn unban" onclick="confirmUnmute()">🔊 Remover silêncio</button>'
-          : '') +
-        '<button class="modal-btn cancel" onclick="closeUserModal()">Cancelar</button>';
+        (isMuted ? '<button class="modal-btn unban" data-action="unmute">🔊 Remover silêncio</button>' : '') +
+        '<button class="modal-btn cancel" data-action="cancel">Cancelar</button>';
     }
 
     document.getElementById("user-action-modal").classList.add("open");
@@ -1054,37 +1050,51 @@ function refreshUsersTable() {
   window.closeUserModal = closeUserModal;
 
   document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("user-action-modal").addEventListener("click", function(e) {
+    var modalEl = document.getElementById("user-action-modal");
+
+    // Fecha ao clicar fora
+    modalEl.addEventListener("click", function(e) {
       if (e.target === this) closeUserModal();
+    });
+
+    // Event delegation do modal — todos os botões internos
+    modalEl.addEventListener("click", function(e) {
+      var el = e.target.closest("[data-action]");
+      if (!el) return;
+      var action = el.getAttribute("data-action");
+
+      if (action === "cancel")       { closeUserModal(); }
+      else if (action === "ban")     { confirmBan(); }
+      else if (action === "unban")   { confirmUnban(); }
+      else if (action === "unmute")  { confirmUnmute(); }
+      else if (action === "confirm-mute") { confirmMute(); }
+      else if (action === "toggle-mute") {
+        document.getElementById("mute-opts").classList.toggle("open");
+      }
+      else if (action === "duration") {
+        document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
+        el.classList.add("selected");
+        selectedMuteSecs = parseInt(el.getAttribute("data-secs"), 10);
+        document.getElementById("apply-mute-btn").style.display = "block";
+      }
     });
 
     // Event delegation para botões de ação da tabela
     document.getElementById("users-tbody").addEventListener("click", function(e) {
       var btn = e.target.closest(".action-btn");
       if (!btn) return;
-      var uid     = btn.getAttribute("data-uid");
-      var name    = btn.getAttribute("data-name");
-      var email   = btn.getAttribute("data-email");
-      var banned  = btn.getAttribute("data-banned") === "1";
-      var muted   = btn.getAttribute("data-muted")  === "1";
+      var uid    = btn.getAttribute("data-uid");
+      var name   = btn.getAttribute("data-name");
+      var email  = btn.getAttribute("data-email");
+      var banned = btn.getAttribute("data-banned") === "1";
+      var muted  = btn.getAttribute("data-muted")  === "1";
       openUserModal(uid, name, email, banned, muted);
     });
   });
 
   var selectedMuteSecs = 0;
 
-  function toggleMuteOpts() {
-    document.getElementById("mute-opts").classList.toggle("open");
-  }
-  window.toggleMuteOpts = toggleMuteOpts;
-
-  function selectMuteDuration(el, secs) {
-    document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
-    el.classList.add("selected");
-    selectedMuteSecs = secs;
-    document.getElementById("apply-mute-btn").style.display = "block";
-  }
-  window.selectMuteDuration = selectMuteDuration;
+  // toggleMuteOpts e selectMuteDuration movidos para event delegation
 
   function confirmBan() {
     if (!modalUid) return;
