@@ -1040,8 +1040,10 @@ function refreshUsersTable() {
   }
   window.closeUserModal = closeUserModal;
 
-  document.getElementById("user-action-modal").addEventListener("click", function(e) {
-    if (e.target === this) closeUserModal();
+  document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("user-action-modal").addEventListener("click", function(e) {
+      if (e.target === this) closeUserModal();
+    });
   });
 
   var selectedMuteSecs = 0;
