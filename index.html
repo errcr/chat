@@ -1445,37 +1445,38 @@ function snapshotToSortedArray(snap) {
     });
   }
 
+  var lastMsgTime = 0;
+  var msgCount = 0;
+
   function sendMessage() {
   var input = document.getElementById("msg-input");
   var text = input.value.trim();
 
   if (!text && !pendingImg) return;
 
-  // anti-flood por tempo
-  if (!window.lastMsgTime) window.lastMsgTime = 0;
+  // anti-flood local (UX imediato)
   var now = Date.now();
-
-  if (now - window.lastMsgTime < 800) {
+  if (now - lastMsgTime < 800) {
     alert("⚠️ Muito rápido!");
     addStrike();
     return;
   }
 
-  window.lastMsgTime = now;
-
   // anti-spam por quantidade
-  if (!window.msgCount) window.msgCount = 0;
-  window.msgCount++;
-
-  if (window.msgCount > 6) {
+  msgCount++;
+  if (msgCount > 6) {
     alert("🚫 Spam detectado!");
     addStrike();
     return;
   }
+  setTimeout(function() { msgCount = Math.max(msgCount - 1, 0); }, 4000);
 
-  setTimeout(function() {
-    window.msgCount = Math.max((window.msgCount || 1) - 1, 0);
-  }, 4000);
+  lastMsgTime = now;
+
+  // grava flood_control no servidor antes de enviar
+  if (myId) {
+    db.ref("flood_control/" + myId).set({ lastMsg: now, name: myName });
+  }
 
   // limite de tamanho
   if (text.length > 300) {
@@ -1596,35 +1597,37 @@ function autoBanUser() {
 }
  
 function addStrike() {
-  if (!myId) return;
+  if (!window.strikes) window.strikes = 0;
 
-  var ref = db.ref("strikes/" + myId);
+  window.strikes++;
 
-  ref.transaction(function(current) {
-    return (current || 0) + 1;
-  }, function(err, committed, snap) {
-    if (err || !committed) return;
+  console.log("STRIKE:", window.strikes);
 
-    var total = snap.val() || 0;
+  if (window.strikes === 3) {
+    applyMute(15); // 15 segundos
+  }
 
-    if (total === 3) applyMute(15);
-    if (total === 5) applyMute(60);
-    if (total >= 7)  autoBanUser();
-  });
+  if (window.strikes === 5) {
+    applyMute(60); // 1 minuto
+  }
+
+  if (window.strikes >= 7) {
+    autoBanUser();
+  }
 }
+  
 
   function applyMute(seconds) {
     var until = Date.now() + (seconds * 1000);
 
+    // 🔥 salva no Firebase
     db.ref("muted/" + myId).set({
       name: myName,
       until: until,
       reason: "spam"
     });
 
-    db.ref("strikes/" + myId).remove();
-
-    alert("\uD83D\uDD07 Você foi silenciado por " + seconds + " segundos.");
+    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
   }
 
   function setTypingStatus(active) {
