@@ -966,6 +966,7 @@ function refreshUsersTable() {
     usersMap[uid] = {
       name: u.name || u.email || "Usuário",
       email: u.email || "",
+      emoji: u.emoji || "",
       msgCount: 0
     };
   });
@@ -979,6 +980,7 @@ function refreshUsersTable() {
         usersMap[msg.userId] = {
           name: msg.name || "Usuário",
           email: "",
+          emoji: msg.emoji || "",
           msgCount: 0
         };
       }
@@ -1045,7 +1047,7 @@ function refreshUsersTable() {
 
     return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '">' +
       '<td><div class="user-row-name">' +
-        '<div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div>' +
+        '<div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + ';font-size:' + (info.emoji ? '18px' : '12px') + '">' + (info.emoji || initials(info.name)) + '</div>' +
         '<div>' +
           '<div class="user-name">' + nameDisplay + '</div>' +
           '<div class="user-email">' + escHtml(info.email || "") + '</div>' +
@@ -1264,7 +1266,7 @@ function refreshUsersTable() {
   }).map(function(msg) {
     var color = colorFor(msg.name);
     return '<div class="admin-msg" data-msg-id="' + msg.id + '">' +
-      '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(msg.name) + '</div>' +
+      '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + ';font-size:' + (msg.emoji ? '16px' : '11px') + '">' + (msg.emoji || initials(msg.name)) + '</div>' +
       '<div class="msg-content">' +
         '<div class="msg-header">' +
           '<span class="msg-author" style="color:' + color + '">' + escHtml(msg.name) + '</span>' +
@@ -1498,7 +1500,7 @@ function refreshUsersTable() {
       var info  = usersFromPresence[uid];
       var color = colorFor(info.name);
       var rooms = info.rooms.join(", #");
-      return '<div class="online-card"><div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + initials(info.name) + '</div><div class="info"><div class="name">' + escHtml(info.name) + '</div><div class="room">#' + escHtml(rooms) + '</div></div></div>';
+      return '<div class="online-card"><div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + ';font-size:' + (info.emoji ? "18px" : "15px") + '">' + (info.emoji || initials(info.name)) + '</div><div class="info"><div class="name">' + escHtml(info.name) + '</div><div class="room">#' + escHtml(rooms) + '</div></div></div>';
     }).join("");
   }
 </script>
