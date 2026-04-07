@@ -875,12 +875,12 @@ function listenRooms() {
       var settingsData = snapSettings.exists() ? snapSettings.val() : {};
       var allRoomsSet = {};
 
-      // Fonte primária: room_settings (sala existe se foi criada)
+      // room_settings é a fonte de verdade — sala existe se tem settings
       Object.keys(settingsData).forEach(function(r) {
         allRoomsSet[r] = true;
       });
 
-      // Mensagens: só adiciona se não estiver sendo deletada
+      // Mensagens com conteúdo também indicam sala ativa
       // (nó vazio = deleção em andamento, ignora)
       if (snapMsgs.exists()) {
         Object.keys(snapMsgs.val()).forEach(function(r) {
@@ -891,23 +891,10 @@ function listenRooms() {
         });
       }
 
-      // presence e typing só adicionam salas que já estão em room_settings
-      if (snapPres.exists()) {
-        Object.keys(snapPres.val()).forEach(function(r) {
-          if (settingsData[r]) allRoomsSet[r] = true;
-        });
-      }
-
-      if (snapTyp.exists()) {
-        Object.keys(snapTyp.val()).forEach(function(r) {
-          if (settingsData[r]) allRoomsSet[r] = true;
-        });
-      }
-
-      // Remove salas que estão em allRooms local mas não mais no Firebase
-      // (deleção já confirmada localmente)
+      // Salas sendo deletadas localmente não voltam
+      // (deleteRoom já remove de allRooms antes do Firebase responder)
       Object.keys(allRoomsSet).forEach(function(r) {
-        if (allRooms.indexOf(r) === -1 && !settingsData[r]) {
+        if (!settingsData[r] && allRooms.indexOf(r) === -1) {
           delete allRoomsSet[r];
         }
       });
