@@ -1045,12 +1045,32 @@ function refreshUsersTable() {
   });
 
 
+  function confirmBan() {
+    if (!modalUid) return;
+    var uid = modalUid, name = modalName;
+    closeUserModal();
+    db.ref("banned/" + uid).set({ name: name, bannedAt: Date.now() });
+    db.ref("presence").once("value", function(snap) {
+      if (!snap.exists()) return;
+      Object.keys(snap.val()).forEach(function(room) {
+        if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
+      });
+    });
+  }
+
+  function confirmUnban() {
+    if (!modalUid) return;
+    var uid = modalUid;
+    closeUserModal();
+    db.ref("banned/" + uid).remove();
+  }
+
   window.banUser = function(uid, name) {
-    openUserModal(uid, name, "", false, false);
+    openUserModal(uid, name, "", false);
   };
 
   window.unbanUser = function(uid, name) {
-    openUserModal(uid, name, "", true, false);
+    openUserModal(uid, name, "", true);
   };
 
   window.deleteRoom = async function(room) {
