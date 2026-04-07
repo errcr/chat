@@ -308,6 +308,20 @@
     }
     .messages-list::-webkit-scrollbar { width: 4px; }
     .messages-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    .search-bar {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .search-bar input {
+      flex: 1; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 10px; color: var(--text); font-family: var(--font);
+      font-size: 13px; padding: 7px 12px; transition: border-color .2s;
+    }
+    .search-bar input:focus { outline: none; border-color: var(--accent); }
+    .search-bar input::placeholder { color: var(--muted); }
+    .search-count { font-size: 11px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+    .admin-msg.hidden { display: none; }
+    .admin-msg mark { background: var(--accent)44; color: var(--text); border-radius: 3px; padding: 0 2px; }
 
     .admin-msg {
       display: flex; gap: 10px; align-items: flex-start;
@@ -1237,6 +1251,10 @@ function refreshUsersTable() {
         '<span class="room-tag">#' + escHtml(selectedRoom) + '</span>' +
         '<span class="msg-count" id="admin-msg-count">0 mensagens</span>' +
       '</div>' +
+      '<div class="search-bar">' +
+        '<input type="text" id="msg-search" placeholder="Buscar por texto ou autor..." oninput="filterMessages(this.value)"/>' +
+        '<span class="search-count" id="search-count"></span>' +
+      '</div>' +
       '<div class="messages-list" id="msg-list"></div>';
     list = document.getElementById("msg-list");
   }
@@ -1284,6 +1302,38 @@ function refreshUsersTable() {
   var countEl = document.getElementById("admin-msg-count");
   if (countEl) countEl.textContent = Object.keys(adminRenderedIds).length + ' mensagens';
 }
+
+  window.filterMessages = function(query) {
+    var q = query.trim().toLowerCase();
+    var msgs = document.querySelectorAll("#msg-list .admin-msg");
+    var visible = 0;
+
+    msgs.forEach(function(el) {
+      var author = (el.querySelector(".msg-author") || {}).textContent || "";
+      var text   = (el.querySelector(".msg-text")   || {}).textContent || "";
+      var match  = !q || author.toLowerCase().includes(q) || text.toLowerCase().includes(q);
+
+      el.classList.toggle("hidden", !match);
+
+      if (match) {
+        visible++;
+        // destaca o termo encontrado no texto
+        var textEl = el.querySelector(".msg-text");
+        if (textEl && !textEl.querySelector("img") && q) {
+          var raw = textEl.textContent;
+          var re  = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\]/g, "\$&") + ")", "gi");
+          textEl.innerHTML = escHtml(raw).replace(re, "<mark>$1</mark>");
+        } else if (textEl && !textEl.querySelector("img")) {
+          textEl.textContent = textEl.textContent;
+        }
+      }
+    });
+
+    var countEl = document.getElementById("search-count");
+    if (countEl) {
+      countEl.textContent = q ? visible + " resultado" + (visible !== 1 ? "s" : "") : "";
+    }
+  };
 
   function attachAdminScroll() {
     var list = document.getElementById("msg-list");
@@ -1411,6 +1461,8 @@ function refreshUsersTable() {
       adminHasMore = true;
       adminRenderedIds = {};
       adminScrollAttached = false;
+      var prevSearch = document.getElementById("msg-search");
+      if (prevSearch) prevSearch.value = "";
 
       db.ref("messages/" + room)
         .orderByChild("ts")
