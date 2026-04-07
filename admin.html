@@ -997,6 +997,8 @@ function refreshUsersTable() {
   window.openUserModal = function(uid, name, email, isBanned, isMuted) {
     modalUid  = uid;
     modalName = name;
+    isBanned = isBanned === true || isBanned === "true";
+    isMuted  = isMuted  === true || isMuted  === "true";
 
     document.getElementById("modal-user-name").textContent  = name;
     document.getElementById("modal-user-email").textContent = email || uid;
@@ -1036,7 +1038,9 @@ function refreshUsersTable() {
 
   function closeUserModal() {
     document.getElementById("user-action-modal").classList.remove("open");
-    modalUid = modalName = null;
+    modalUid  = null;
+    modalName = null;
+    selectedMuteSecs = 0;
   }
   window.closeUserModal = closeUserModal;
 
@@ -1085,9 +1089,12 @@ function refreshUsersTable() {
 
   function confirmMute() {
     if (!modalUid || !selectedMuteSecs) return;
-    var uid = modalUid, name = modalName;
+    var uid   = modalUid;
+    var name  = modalName;
+    var secs  = selectedMuteSecs;
+    var until = Date.now() + secs * 1000;
     closeUserModal();
-    var until = Date.now() + selectedMuteSecs * 1000;
+    selectedMuteSecs = 0;
     db.ref("muted/" + uid).set({ name: name, until: until, reason: "admin" });
   }
   window.confirmMute = confirmMute;
