@@ -1445,38 +1445,37 @@ function snapshotToSortedArray(snap) {
     });
   }
 
-  var lastMsgTime = 0;
-  var msgCount = 0;
-
   function sendMessage() {
   var input = document.getElementById("msg-input");
   var text = input.value.trim();
 
   if (!text && !pendingImg) return;
 
-  // anti-flood local (UX imediato)
+  // anti-flood por tempo
+  if (!window.lastMsgTime) window.lastMsgTime = 0;
   var now = Date.now();
-  if (now - lastMsgTime < 800) {
+
+  if (now - window.lastMsgTime < 800) {
     alert("⚠️ Muito rápido!");
     addStrike();
     return;
   }
 
+  window.lastMsgTime = now;
+
   // anti-spam por quantidade
-  msgCount++;
-  if (msgCount > 6) {
+  if (!window.msgCount) window.msgCount = 0;
+  window.msgCount++;
+
+  if (window.msgCount > 6) {
     alert("🚫 Spam detectado!");
     addStrike();
     return;
   }
-  setTimeout(function() { msgCount = Math.max(msgCount - 1, 0); }, 4000);
 
-  lastMsgTime = now;
-
-  // grava flood_control no servidor antes de enviar
-  if (myId) {
-    db.ref("flood_control/" + myId).set({ lastMsg: now, name: myName });
-  }
+  setTimeout(function() {
+    window.msgCount = Math.max((window.msgCount || 1) - 1, 0);
+  }, 4000);
 
   // limite de tamanho
   if (text.length > 300) {
@@ -1484,25 +1483,7 @@ function snapshotToSortedArray(snap) {
     return;
   }
 
-  // verifica mute no Firebase antes de enviar
-  db.ref("muted/" + myId).once("value").then(function(snap) {
-    if (snap.exists()) {
-      var data = snap.val() || {};
-
-      if (data.until && Date.now() < data.until) {
-        var segundos = Math.ceil((data.until - Date.now()) / 1000);
-        alert("🔇 Você está silenciado por mais " + segundos + "s.");
-        return;
-      }
-
-      // se expirou, remove
-      db.ref("muted/" + myId).remove();
-    }
-
-    enviarMensagem(text);
-  }).catch(function(err) {
-    alert("Erro ao verificar mute: " + err.message);
-  });
+  enviarMensagem(text);
 }
 
 async function hashPassword(password) {
@@ -1598,37 +1579,10 @@ function autoBanUser() {
  
 function addStrike() {
   if (!window.strikes) window.strikes = 0;
-
   window.strikes++;
-
-  console.log("STRIKE:", window.strikes);
-
-  if (window.strikes === 3) {
-    applyMute(15); // 15 segundos
-  }
-
-  if (window.strikes === 5) {
-    applyMute(60); // 1 minuto
-  }
-
-  if (window.strikes >= 7) {
-    autoBanUser();
-  }
+  if (window.strikes >= 7) autoBanUser();
 }
   
-
-  function applyMute(seconds) {
-    var until = Date.now() + (seconds * 1000);
-
-    // 🔥 salva no Firebase
-    db.ref("muted/" + myId).set({
-      name: myName,
-      until: until,
-      reason: "spam"
-    });
-
-    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
-  }
 
   function setTypingStatus(active) {
     if (myRoom && myId) db.ref("typing/"+myRoom+"/"+myId).set({ name:myName, userId:myId, active:active });
