@@ -1034,10 +1034,11 @@ function refreshUsersTable() {
     document.getElementById("user-action-modal").classList.add("open");
   };
 
-  window.closeUserModal = function() {
+  function closeUserModal() {
     document.getElementById("user-action-modal").classList.remove("open");
     modalUid = modalName = null;
-  };
+  }
+  window.closeUserModal = closeUserModal;
 
   document.getElementById("user-action-modal").addEventListener("click", function(e) {
     if (e.target === this) closeUserModal();
@@ -1045,47 +1046,57 @@ function refreshUsersTable() {
 
   var selectedMuteSecs = 0;
 
-  window.toggleMuteOpts = function() {
+  function toggleMuteOpts() {
     document.getElementById("mute-opts").classList.toggle("open");
-  };
+  }
+  window.toggleMuteOpts = toggleMuteOpts;
 
-  window.selectMuteDuration = function(el, secs) {
+  function selectMuteDuration(el, secs) {
     document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
     el.classList.add("selected");
     selectedMuteSecs = secs;
     document.getElementById("apply-mute-btn").style.display = "block";
-  };
+  }
+  window.selectMuteDuration = selectMuteDuration;
 
-  window.confirmBan = function() {
+  function confirmBan() {
     if (!modalUid) return;
+    var uid = modalUid, name = modalName;
     closeUserModal();
-    db.ref("banned/" + modalUid).set({ name: modalName, bannedAt: Date.now() });
+    db.ref("banned/" + uid).set({ name: name, bannedAt: Date.now() });
     db.ref("presence").once("value", function(snap) {
       if (!snap.exists()) return;
       Object.keys(snap.val()).forEach(function(room) {
-        if (snap.val()[room][modalUid]) db.ref("presence/" + room + "/" + modalUid).remove();
+        if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
       });
     });
-  };
+  }
+  window.confirmBan = confirmBan;
 
-  window.confirmUnban = function() {
+  function confirmUnban() {
     if (!modalUid) return;
+    var uid = modalUid;
     closeUserModal();
-    db.ref("banned/" + modalUid).remove();
-  };
+    db.ref("banned/" + uid).remove();
+  }
+  window.confirmUnban = confirmUnban;
 
-  window.confirmMute = function() {
+  function confirmMute() {
     if (!modalUid || !selectedMuteSecs) return;
+    var uid = modalUid, name = modalName;
     closeUserModal();
     var until = Date.now() + selectedMuteSecs * 1000;
-    db.ref("muted/" + modalUid).set({ name: modalName, until: until, reason: "admin" });
-  };
+    db.ref("muted/" + uid).set({ name: name, until: until, reason: "admin" });
+  }
+  window.confirmMute = confirmMute;
 
-  window.confirmUnmute = function() {
+  function confirmUnmute() {
     if (!modalUid) return;
+    var uid = modalUid;
     closeUserModal();
-    db.ref("muted/" + modalUid).remove();
-  };
+    db.ref("muted/" + uid).remove();
+  }
+  window.confirmUnmute = confirmUnmute;
 
   window.banUser = function(uid, name) {
     openUserModal(uid, name, "", false, false);
