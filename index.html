@@ -957,17 +957,26 @@ function buildMessageRow(msg) {
           err.style.display = "block";
           return;
         }
+        // não banido — continua normalmente
+        proceedAfterBanCheck(user);
+      }).catch(function(err) {
+        // permission_denied ao ler nó inexistente — tratar como não banido
+        console.warn("ban check error:", err.message);
+        proceedAfterBanCheck(user);
+      });
+
+      function proceedAfterBanCheck(user) {
         hide("auth-screen"); hide("chat-app"); show("room-screen");
         document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
         document.getElementById("greeting-email").textContent = user.email;
         initEmojiAvPicker();
-        loadEmojiAv(user.uid); 
+        loadEmojiAv(user.uid);
         db.ref("users/" + user.uid).update({
           name: user.displayName || user.email.split("@")[0],
           email: user.email,
           lastSeen: Date.now()
         });
-      });
+      }
     } else {
       show("auth-screen"); hide("room-screen"); hide("chat-app");
       var btn = document.getElementById("auth-btn");
