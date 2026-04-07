@@ -391,7 +391,7 @@
     }
   </style>
 </head>
-<body>
+<body style="visibility:hidden">
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -517,6 +517,19 @@
   var auth = firebase.auth();
   var db   = firebase.database();
 
+  // Timeout de segurança: se o Firebase não responder em 5s, redireciona
+  var authTimeout = setTimeout(function() {
+    document.body.style.visibility = "visible";
+    document.getElementById("login-screen").style.display = "flex";
+    document.getElementById("admin-panel").style.display  = "none";
+    var err = document.getElementById("error-msg");
+    err.textContent = "Tempo limite de autenticação. Tente novamente.";
+    err.style.display = "block";
+  }, 5000);
+
+  // Cancela o timeout assim que o Firebase responder
+  auth.onAuthStateChanged(function() { clearTimeout(authTimeout); });
+
   // ── Helpers ──
   var COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
   function colorFor(name) {
@@ -569,7 +582,11 @@
 
   // ── Auth state ──
   auth.onAuthStateChanged(function(user) {
+    // Só revela a página após o Firebase confirmar o estado de auth
+    document.body.style.visibility = "visible";
+
     if (user && user.email === ADMIN_EMAIL) {
+      // Usuário autenticado e é admin
       db.ref("users/" + user.uid).update({
         name: user.displayName || user.email.split("@")[0],
         email: user.email,
@@ -579,10 +596,19 @@
       document.getElementById("admin-panel").style.display  = "flex";
       document.getElementById("admin-email-label").textContent = user.email;
       initAdmin();
-    } else {
+    } else if (user && user.email !== ADMIN_EMAIL) {
+      // Autenticado mas não é admin — desloga e bloqueia
+      auth.signOut();
       document.getElementById("login-screen").style.display = "flex";
       document.getElementById("admin-panel").style.display  = "none";
-      const btn = document.getElementById("login-btn");
+      var err = document.getElementById("error-msg");
+      err.textContent = "Acesso negado. Esta conta não tem permissão de administrador.";
+      err.style.display = "block";
+    } else {
+      // Não autenticado — mostra login
+      document.getElementById("login-screen").style.display = "flex";
+      document.getElementById("admin-panel").style.display  = "none";
+      var btn = document.getElementById("login-btn");
       btn.disabled = false; btn.textContent = "Entrar";
     }
   });
