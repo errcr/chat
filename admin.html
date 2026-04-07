@@ -396,6 +396,46 @@
       .tabs { padding: 12px 16px 0; overflow-x: auto; }
     }
 
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 10px 20px;
+      font-size: 13px; font-family: var(--mono); color: var(--text);
+      box-shadow: 0 4px 20px #0004; z-index: 200;
+      opacity: 0; transition: opacity .2s; pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { border-color: #34d39940; color: var(--green); }
+    .toast.error   { border-color: #f8717140; color: var(--red); }
+
+    /* ── Modal de confirmação ── */
+    .confirm-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: #0008; z-index: 100;
+      align-items: center; justify-content: center;
+    }
+    .confirm-backdrop.open { display: flex; }
+    .confirm-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px;
+      width: 100%; max-width: 360px;
+      display: flex; flex-direction: column; gap: 14px;
+      animation: fadeUp .2s ease;
+    }
+    .confirm-title { font-size: 16px; font-weight: 800; }
+    .confirm-msg   { font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .confirm-btns  { display: flex; gap: 10px; }
+    .confirm-btns button {
+      flex: 1; padding: 11px; border-radius: 10px;
+      font-family: var(--font); font-size: 14px; font-weight: 700;
+      cursor: pointer; border: none; transition: opacity .15s;
+    }
+    .confirm-btns button:hover { opacity: .85; }
+    .confirm-ok     { background: var(--red);     color: #fff; }
+    .confirm-cancel { background: var(--surface2); color: var(--muted); border: 1px solid var(--border) !important; }
+
     /* ── Modal de ação ── */
     .modal-backdrop {
       display: none; position: fixed; inset: 0;
@@ -536,6 +576,21 @@
 </div>
 
 
+<!-- TOAST -->
+<div class="toast" id="admin-toast"></div>
+
+<!-- MODAL DE CONFIRMAÇÃO -->
+<div class="confirm-backdrop" id="confirm-modal">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title"></div>
+    <div class="confirm-msg"   id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" id="confirm-cancel-btn">Cancelar</button>
+      <button class="confirm-ok"     id="confirm-ok-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DE AÇÃO DE USUÁRIO -->
 <div class="modal-backdrop" id="user-action-modal">
   <div class="modal-box">
@@ -577,6 +632,32 @@
     applyTheme();
   };
   applyTheme();
+
+  // ── Toast ──
+  function showToast(msg, type, duration) {
+    var el = document.getElementById("admin-toast");
+    el.textContent = msg;
+    el.className = "toast " + (type || "");
+    void el.offsetWidth;
+    el.classList.add("show");
+    clearTimeout(el._t);
+    el._t = setTimeout(function() { el.classList.remove("show"); }, duration || 2500);
+  }
+
+  // ── Modal de confirmação ──
+  var confirmCallback = null;
+  function showConfirm(title, msg, okLabel, onOk) {
+    document.getElementById("confirm-title").textContent = title;
+    document.getElementById("confirm-msg").textContent   = msg;
+    var okBtn = document.getElementById("confirm-ok-btn");
+    okBtn.textContent = okLabel || "Confirmar";
+    confirmCallback = onOk;
+    document.getElementById("confirm-modal").classList.add("open");
+  }
+  function closeConfirm() {
+    document.getElementById("confirm-modal").classList.remove("open");
+    confirmCallback = null;
+  }
 
   var authTimeout = setTimeout(function() {
     document.body.style.visibility = "visible";
@@ -1047,6 +1128,16 @@ function refreshUsersTable() {
 
   // Event delegation para botões de ação da tabela
   document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("confirm-ok-btn").addEventListener("click", function() {
+      var cb = confirmCallback;
+      closeConfirm();
+      if (cb) cb();
+    });
+    document.getElementById("confirm-cancel-btn").addEventListener("click", closeConfirm);
+    document.getElementById("confirm-modal").addEventListener("click", function(e) {
+      if (e.target === this) closeConfirm();
+    });
+
     document.getElementById("users-tbody").addEventListener("click", function(e) {
       var btn = e.target.closest(".action-btn");
       if (!btn) return;
@@ -1070,13 +1161,15 @@ function refreshUsersTable() {
         if (snap.val()[room][uid]) db.ref("presence/" + room + "/" + uid).remove();
       });
     });
+    showToast(name + " foi banido.", "error");
   }
 
   function confirmUnban() {
     if (!modalUid) return;
-    var uid = modalUid;
+    var uid = modalUid, name = modalName;
     closeUserModal();
     db.ref("banned/" + uid).remove();
+    showToast(name + " foi desbanido.", "success");
   }
 
   window.banUser = function(uid, name) {
@@ -1087,11 +1180,14 @@ function refreshUsersTable() {
     openUserModal(uid, name, "", true);
   };
 
-  window.deleteRoom = async function(room) {
-  if (!confirm('Apagar a sala #' + room + ' e todas as suas mensagens? Esta ação não pode ser desfeita.')) return;
+  window.deleteRoom = function(room) {
+  showConfirm(
+    "Apagar sala #" + room,
+    "Todas as mensagens serão removidas permanentemente. Esta ação não pode ser desfeita.",
+    "Apagar",
+    async function() {
 
-  // Remove localmente imediato — antes de qualquer operação no Firebase
-  // para evitar que os listeners recriem a sala durante a deleção
+  // Remove localmente imediato
   allRooms = allRooms.filter(function(r) { return r !== room; });
   if (allMessagesData[room]) delete allMessagesData[room];
 
@@ -1106,20 +1202,21 @@ function refreshUsersTable() {
   document.getElementById("stat-rooms").textContent = allRooms.length;
 
   try {
-    // Remove tudo no Firebase em paralelo
     await Promise.all([
-      db.ref("messages/"     + room).remove(),
-      db.ref("presence/"     + room).remove(),
-      db.ref("typing/"       + room).remove(),
+      db.ref("messages/"      + room).remove(),
+      db.ref("presence/"      + room).remove(),
+      db.ref("typing/"        + room).remove(),
       db.ref("room_settings/" + room).remove()
     ]);
     refreshUsersTable();
-    alert("✅ Sala apagada com sucesso.");
+    showToast("Sala #" + room + " apagada.", "success");
   } catch (err) {
-    console.error("Erro detalhado ao apagar sala:", room, err);
-    alert("❌ Erro ao apagar sala: " + err.message);
+    console.error("Erro ao apagar sala:", room, err);
+    showToast("Erro ao apagar sala: " + err.message, "error", 4000);
   }
-};
+
+  }); // fim async callback
+  }; // fim showConfirm
 
   function snapshotAdmin(snap) {
     return Object.keys(snap.val()).map(function(k) {
