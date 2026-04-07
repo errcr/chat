@@ -484,18 +484,30 @@
   }
 
   function copyText(text) {
-    navigator.clipboard.writeText(text).then(function() {
+    function showToast() {
       var toast = document.getElementById("copy-toast");
       toast.classList.add("show");
       setTimeout(function(){ toast.classList.remove("show"); }, 1800);
-    }).catch(function() {
-      var ta = document.createElement("textarea");
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      document.execCommand("copy"); document.body.removeChild(ta);
-      var toast = document.getElementById("copy-toast");
-      toast.classList.add("show");
-      setTimeout(function(){ toast.classList.remove("show"); }, 1800);
-    });
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(showToast).catch(function() { fallbackCopy(text, showToast); });
+    } else {
+      fallbackCopy(text, showToast);
+    }
+  }
+
+  function fallbackCopy(text, cb) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.top = "-9999px";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    try { if (document.execCommand("copy") && cb) cb(); }
+    catch(e) { console.warn("Cópia não suportada."); }
+    finally { document.body.removeChild(ta); }
   }
 
   // ── Emoji Avatar ──
@@ -1445,37 +1457,38 @@ function snapshotToSortedArray(snap) {
     });
   }
 
+  var lastMsgTime = 0;
+  var msgCount = 0;
+
   function sendMessage() {
   var input = document.getElementById("msg-input");
   var text = input.value.trim();
 
   if (!text && !pendingImg) return;
 
-  // anti-flood por tempo
-  if (!window.lastMsgTime) window.lastMsgTime = 0;
+  // anti-flood local (UX imediato)
   var now = Date.now();
-
-  if (now - window.lastMsgTime < 800) {
+  if (now - lastMsgTime < 800) {
     alert("⚠️ Muito rápido!");
     addStrike();
     return;
   }
 
-  window.lastMsgTime = now;
-
   // anti-spam por quantidade
-  if (!window.msgCount) window.msgCount = 0;
-  window.msgCount++;
-
-  if (window.msgCount > 6) {
+  msgCount++;
+  if (msgCount > 6) {
     alert("🚫 Spam detectado!");
     addStrike();
     return;
   }
+  setTimeout(function() { msgCount = Math.max(msgCount - 1, 0); }, 4000);
 
-  setTimeout(function() {
-    window.msgCount = Math.max((window.msgCount || 1) - 1, 0);
-  }, 4000);
+  lastMsgTime = now;
+
+  // grava flood_control no servidor
+  if (myId) {
+    db.ref("flood_control/" + myId).set({ lastMsg: now, name: myName });
+  }
 
   // limite de tamanho
   if (text.length > 300) {
