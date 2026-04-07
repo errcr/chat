@@ -946,43 +946,48 @@ function buildMessageRow(msg) {
 
   auth.onAuthStateChanged(function(user) {
     if (user) {
-      // check if banned
-      db.ref("banned/" + user.uid).once("value", function(snap) {
-        if (snap.exists()) {
-          // banido — faz logout e mostra mensagem
-          auth.signOut();
-          show("auth-screen"); hide("room-screen"); hide("chat-app");
-          var err = document.getElementById("error-msg");
-          err.textContent = "Sua conta foi suspensa. Entre em contato com o administrador.";
-          err.style.display = "block";
-          return;
-        }
-        // não banido — continua normalmente
-        proceedAfterBanCheck(user);
-      }).catch(function(err) {
-        // permission_denied ao ler nó inexistente — tratar como não banido
-        console.warn("ban check error:", err.message);
-        proceedAfterBanCheck(user);
+      // Força refresh do token para garantir claims atualizadas
+      user.getIdToken(true).then(function() {
+        checkBanned(user);
+      }).catch(function() {
+        checkBanned(user);
       });
-
-      function proceedAfterBanCheck(user) {
-        hide("auth-screen"); hide("chat-app"); show("room-screen");
-        document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
-        document.getElementById("greeting-email").textContent = user.email;
-        initEmojiAvPicker();
-        loadEmojiAv(user.uid);
-        db.ref("users/" + user.uid).update({
-          name: user.displayName || user.email.split("@")[0],
-          email: user.email,
-          lastSeen: Date.now()
-        });
-      }
     } else {
       show("auth-screen"); hide("room-screen"); hide("chat-app");
       var btn = document.getElementById("auth-btn");
       btn.disabled=false; btn.textContent=isRegisterMode?"Criar conta":"Entrar";
     }
-  }); 
+  });
+
+  function checkBanned(user) {
+    db.ref("banned/" + user.uid).once("value", function(snap) {
+      if (snap.exists()) {
+        auth.signOut();
+        show("auth-screen"); hide("room-screen"); hide("chat-app");
+        var err = document.getElementById("error-msg");
+        err.textContent = "Sua conta foi suspensa. Entre em contato com o administrador.";
+        err.style.display = "block";
+        return;
+      }
+      proceedAfterBanCheck(user);
+    }).catch(function(e) {
+      console.warn("ban check error:", e.message);
+      proceedAfterBanCheck(user);
+    });
+  }
+
+  function proceedAfterBanCheck(user) {
+    hide("auth-screen"); hide("chat-app"); show("room-screen");
+    document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
+    document.getElementById("greeting-email").textContent = user.email;
+    initEmojiAvPicker();
+    loadEmojiAv(user.uid);
+    db.ref("users/" + user.uid).update({
+      name: user.displayName || user.email.split("@")[0],
+      email: user.email,
+      lastSeen: Date.now()
+    });
+  } 
  
 let lastRoomCheckToken = 0; 
 
