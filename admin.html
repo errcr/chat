@@ -1080,43 +1080,29 @@ function refreshUsersTable() {
   window.deleteRoom = async function(room) {
   if (!confirm('Apagar a sala #' + room + ' e todas as suas mensagens? Esta ação não pode ser desfeita.')) return;
 
+  // Remove localmente imediato — antes de qualquer operação no Firebase
+  // para evitar que os listeners recriem a sala durante a deleção
+  allRooms = allRooms.filter(function(r) { return r !== room; });
+  if (allMessagesData[room]) delete allMessagesData[room];
+
+  if (selectedRoom === room) {
+    selectedRoom = null;
+    if (activeRoomRef) { activeRoomRef.off(); activeRoomRef = null; }
+    document.getElementById("messages-panel").innerHTML =
+      '<div class="empty-panel"><div class="icon">💬</div><div>Selecione uma sala ao lado</div></div>';
+  }
+
+  renderRoomsList();
+  document.getElementById("stat-rooms").textContent = allRooms.length;
+
   try {
-    console.log("Tentando apagar sala:", room);
-
-    // 1. remove presença e digitação primeiro
-    await db.ref("presence/" + room).remove();
-    console.log("presence ok");
-
-    await db.ref("typing/" + room).remove();
-    console.log("typing ok");
-
-    // 2. remove mensagens
-    await db.ref("messages/" + room).remove();
-    console.log("messages ok");
-
-    // 3. por último remove room_settings
-    // isso dispara a expulsão automática nos clientes conectados
-    await db.ref("room_settings/" + room).remove();
-    console.log("room_settings ok");
-
-    allRooms = allRooms.filter(function(r) { return r !== room; });
-
-    if (selectedRoom === room) {
-      selectedRoom = null;
-
-      if (activeRoomRef) {
-        activeRoomRef.off();
-        activeRoomRef = null;
-      }
-
-      document.getElementById("messages-panel").innerHTML =
-        '<div class="empty-panel">' +
-          '<div class="icon">💬</div>' +
-          '<div>Selecione uma sala ao lado</div>' +
-        '</div>';
-    }
-
-    renderRoomsList();
+    // Remove tudo no Firebase em paralelo
+    await Promise.all([
+      db.ref("messages/"     + room).remove(),
+      db.ref("presence/"     + room).remove(),
+      db.ref("typing/"       + room).remove(),
+      db.ref("room_settings/" + room).remove()
+    ]);
     refreshUsersTable();
     alert("✅ Sala apagada com sucesso.");
   } catch (err) {
