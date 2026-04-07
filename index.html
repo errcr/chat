@@ -1605,9 +1605,27 @@ function autoBanUser() {
 }
  
 function addStrike() {
-  if (!window.strikes) window.strikes = 0;
-  window.strikes++;
-  if (window.strikes >= 7) autoBanUser();
+  if (!myId) return;
+
+  var ref = db.ref("strikes/" + myId);
+
+  ref.once("value", function(snap) {
+    var data = snap.val() || {};
+    var count = data.count || 0;
+    var since = data.since || Date.now();
+    var now   = Date.now();
+
+    // Expirou 24h — zera
+    if (now - since > 86400000) {
+      count = 0;
+      since = now;
+    }
+
+    count++;
+    ref.set({ count: count, since: since });
+
+    if (count >= 7) autoBanUser();
+  });
 }
   
 
