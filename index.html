@@ -1596,37 +1596,35 @@ function autoBanUser() {
 }
  
 function addStrike() {
-  if (!window.strikes) window.strikes = 0;
+  if (!myId) return;
 
-  window.strikes++;
+  var ref = db.ref("strikes/" + myId);
 
-  console.log("STRIKE:", window.strikes);
+  ref.transaction(function(current) {
+    return (current || 0) + 1;
+  }, function(err, committed, snap) {
+    if (err || !committed) return;
 
-  if (window.strikes === 3) {
-    applyMute(15); // 15 segundos
-  }
+    var total = snap.val() || 0;
 
-  if (window.strikes === 5) {
-    applyMute(60); // 1 minuto
-  }
-
-  if (window.strikes >= 7) {
-    autoBanUser();
-  }
+    if (total === 3) applyMute(15);
+    if (total === 5) applyMute(60);
+    if (total >= 7)  autoBanUser();
+  });
 }
-  
 
   function applyMute(seconds) {
     var until = Date.now() + (seconds * 1000);
 
-    // 🔥 salva no Firebase
     db.ref("muted/" + myId).set({
       name: myName,
       until: until,
       reason: "spam"
     });
 
-    alert("🔇 Você foi silenciado por " + seconds + " segundos.");
+    db.ref("strikes/" + myId).remove();
+
+    alert("\uD83D\uDD07 Você foi silenciado por " + seconds + " segundos.");
   }
 
   function setTypingStatus(active) {
