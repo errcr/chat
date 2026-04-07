@@ -547,6 +547,17 @@
   </div>
 </div>
 
+
+<!-- MODAL DE AÇÃO DE USUÁRIO -->
+<div class="modal-backdrop" id="user-action-modal">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-user-name"></div>
+    <div class="modal-sub"  id="modal-user-email"></div>
+    <div class="modal-actions" id="modal-actions">
+      <!-- preenchido via JS -->
+    </div>
+  </div>
+</div>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -1049,37 +1060,30 @@ function refreshUsersTable() {
   }
   window.closeUserModal = closeUserModal;
 
+  // Listeners do modal (modal já existe no DOM antes deste script)
+  var modalEl = document.getElementById("user-action-modal");
+
+  modalEl.addEventListener("click", function(e) {
+    if (e.target === this) closeUserModal();
+    var el = e.target.closest("[data-action]");
+    if (!el) return;
+    var action = el.getAttribute("data-action");
+    if      (action === "cancel")       { closeUserModal(); }
+    else if (action === "ban")          { confirmBan(); }
+    else if (action === "unban")        { confirmUnban(); }
+    else if (action === "unmute")       { confirmUnmute(); }
+    else if (action === "confirm-mute") { confirmMute(); }
+    else if (action === "toggle-mute")  { document.getElementById("mute-opts").classList.toggle("open"); }
+    else if (action === "duration") {
+      document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
+      el.classList.add("selected");
+      selectedMuteSecs = parseInt(el.getAttribute("data-secs"), 10);
+      document.getElementById("apply-mute-btn").style.display = "block";
+    }
+  });
+
+  // Event delegation para botões de ação da tabela
   document.addEventListener("DOMContentLoaded", function() {
-    var modalEl = document.getElementById("user-action-modal");
-
-    // Fecha ao clicar fora
-    modalEl.addEventListener("click", function(e) {
-      if (e.target === this) closeUserModal();
-    });
-
-    // Event delegation do modal — todos os botões internos
-    modalEl.addEventListener("click", function(e) {
-      var el = e.target.closest("[data-action]");
-      if (!el) return;
-      var action = el.getAttribute("data-action");
-
-      if (action === "cancel")       { closeUserModal(); }
-      else if (action === "ban")     { confirmBan(); }
-      else if (action === "unban")   { confirmUnban(); }
-      else if (action === "unmute")  { confirmUnmute(); }
-      else if (action === "confirm-mute") { confirmMute(); }
-      else if (action === "toggle-mute") {
-        document.getElementById("mute-opts").classList.toggle("open");
-      }
-      else if (action === "duration") {
-        document.querySelectorAll(".mute-chip").forEach(function(c){ c.classList.remove("selected"); });
-        el.classList.add("selected");
-        selectedMuteSecs = parseInt(el.getAttribute("data-secs"), 10);
-        document.getElementById("apply-mute-btn").style.display = "block";
-      }
-    });
-
-    // Event delegation para botões de ação da tabela
     document.getElementById("users-tbody").addEventListener("click", function(e) {
       var btn = e.target.closest(".action-btn");
       if (!btn) return;
@@ -1440,16 +1444,5 @@ function refreshUsersTable() {
     document.getElementById("admin-lightbox").style.display = "flex";
   }
 </script>
-
-<!-- MODAL DE AÇÃO DE USUÁRIO -->
-<div class="modal-backdrop" id="user-action-modal">
-  <div class="modal-box">
-    <div class="modal-title" id="modal-user-name"></div>
-    <div class="modal-sub"  id="modal-user-email"></div>
-    <div class="modal-actions" id="modal-actions">
-      <!-- preenchido via JS -->
-    </div>
-  </div>
-</div>
 </body>
 </html>
