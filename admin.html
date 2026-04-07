@@ -781,7 +781,11 @@ function listenRooms() {
 
       if (snapMsgs.exists()) {
         Object.keys(snapMsgs.val()).forEach(function(r) {
-          allRoomsSet[r] = true;
+          // ignora sala se o nó de mensagens existe mas está vazio
+          var roomMsgs = snapMsgs.val()[r];
+          if (roomMsgs && Object.keys(roomMsgs).length > 0) {
+            allRoomsSet[r] = true;
+          }
         });
       }
 
