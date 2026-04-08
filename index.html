@@ -223,9 +223,9 @@
     .reply-btn { background:none; border:none; cursor:pointer; font-size:13px; padding:2px 5px; border-radius:6px; color:var(--muted); transition:background .15s,color .15s; }
     .reply-btn:hover { background:var(--surface2); color:var(--text); }
     /* ── Read receipts ── */
-    .msg-tick { font-size:11px; color:var(--muted); margin-left:3px; transition:color .3s; }
-    .msg-tick.sent     { color:var(--muted); }
-    .msg-tick.read     { color:#60c0f8; }
+    .msg-tick { font-size:11px; color:var(--muted); margin-left:3px; transition:color .3s; display:inline-block; }
+    .msg-tick.sent     { color:var(--muted) !important; }
+    .msg-tick.read     { color:#60c0f8 !important; }
     /* ── Menção @nome (Feature 6) ── */
     #mention-list { display:none; position:absolute; bottom:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:12px 12px 0 0; overflow:hidden; z-index:30; box-shadow:0 -4px 20px #0003; max-height:180px; overflow-y:auto; }
     .mention-item { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; transition:background .15s; font-size:13.5px; }
@@ -1415,9 +1415,11 @@ async function checkRoomPass() {
       if (msgTs <= maxReadTs) {
         tick.textContent = "✓✓";
         tick.className = "msg-tick read";
+        tick.style.color = "#60c0f8";
       } else {
         tick.textContent = "✓";
         tick.className = "msg-tick sent";
+        tick.style.color = "";
       }
     });
   }
