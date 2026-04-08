@@ -1181,6 +1181,7 @@ async function checkRoomPass() {
       roomSettingsListenerRef.off();
       roomSettingsListenerRef = null;
     }
+    if (connectedRef) { connectedRef.off(); connectedRef = null; }
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1198,10 +1199,24 @@ async function checkRoomPass() {
     hasMoreOldMessages = true;
   }
 
+  var connectedRef = null;
+
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
-    presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
     presenceRef.onDisconnect().remove();
+    presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
+
+    // Restaura presença automaticamente ao reconectar (tela apagada, app em bg, etc)
+    if (connectedRef) connectedRef.off();
+    connectedRef = db.ref(".info/connected");
+    connectedRef.on("value", function(snap) {
+      if (!snap.val()) return; // desconectado — onDisconnect cuida da remoção
+      if (!myRoom || !myId) return;
+      // Reconectou: regravar presença
+      presenceRef.onDisconnect().remove();
+      presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
+    });
+
     presenceListenerRef = db.ref("presence/"+myRoom);
     presenceListenerRef.on("value", function(snap) {
       var val = snap.exists() ? snap.val() : {};
