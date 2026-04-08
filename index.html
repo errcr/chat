@@ -3,18 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Secret Chat — Chat em tempo real</title>
-  <meta name="description" content="Secret Chat: converse em tempo real com segurança. Entre numa sala, troque mensagens e reações ao instante."/>
-  <meta name="robots" content="index, follow"/>
-  <link rel="canonical" href="https://secretchat.com.br/"/>
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico"/>
-  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
-  <link rel="apple-touch-icon" href="/icon-192.png"/>
-  <meta property="og:type" content="website"/>
-  <meta property="og:url" content="https://secretchat.com.br/"/>
-  <meta property="og:title" content="Secret Chat — Chat em tempo real"/>
-  <meta property="og:description" content="Converse em tempo real com segurança. Entre numa sala, troque mensagens e reações ao instante."/>
-  <meta property="og:image" content="https://secretchat.com.br/icon-512.png"/>
+  <title>Secret Chat</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1094,12 +1083,7 @@ function buildMessageRow(msg) {
     };
     if (isRegisterMode) {
       auth.createUserWithEmailAndPassword(email, password)
-        .then(function(cred) {
-          return cred.user.updateProfile({ displayName: name }).then(function() {
-            authInitialized = true;
-            checkBanned(cred.user);
-          });
-        })
+        .then(function(cred) { return cred.user.updateProfile({ displayName: name }); })
         .catch(function(e) { btn.disabled=false; btn.textContent="Criar conta"; showError(msgs[e.code]||"Erro: "+e.message); });
     } else {
       auth.signInWithEmailAndPassword(email, password)
@@ -1107,36 +1091,30 @@ function buildMessageRow(msg) {
     }
   }
 
-  function logout() { authSigningOut = true; authInitialized = false; auth.signOut(); }
+  function logout() { auth.signOut(); }
 
   var authInitialized = false;
-  var authSigningOut = false; // flag para distinguir logout real de reconexão
 
   auth.onAuthStateChanged(function(user) {
     if (user) {
+      // Só faz checagem completa na primeira inicialização
+      // Reconexões do Firebase não devem tirar o usuário do chat
       if (!authInitialized) {
         authInitialized = true;
         checkBanned(user);
       }
-      // Se já inicializado, ignora completamente — não faz nada
     } else {
-      // null só conta como logout se authSigningOut=true (logout explícito)
-      // ou se nunca foi inicializado (primeiro carregamento sem sessão)
-      if (!authInitialized || authSigningOut) {
-        authInitialized = false;
-        authSigningOut = false;
-        show("auth-screen"); hide("room-screen"); hide("chat-app");
-        var btn = document.getElementById("auth-btn");
-        btn.disabled=false; btn.textContent=isRegisterMode?"Criar conta":"Entrar";
-      }
-      // Caso contrário ignora — é reconexão temporária do Firebase
+      authInitialized = false;
+      show("auth-screen"); hide("room-screen"); hide("chat-app");
+      var btn = document.getElementById("auth-btn");
+      btn.disabled=false; btn.textContent=isRegisterMode?"Criar conta":"Entrar";
     }
   });
 
   function checkBanned(user) {
     db.ref("banned/" + user.uid).once("value", function(snap) {
       if (snap.exists()) {
-        authSigningOut = true; authInitialized = false; auth.signOut();
+        auth.signOut();
         show("auth-screen"); hide("room-screen"); hide("chat-app");
         var err = document.getElementById("error-msg");
         err.textContent = "Sua conta foi suspensa. Entre em contato com o administrador.";
@@ -1347,7 +1325,7 @@ async function checkRoomPass() {
       banRef.on("value", function(snap) {
         if (snap.exists()) {
           cleanupListeners();
-          authSigningOut = true; authInitialized = false; auth.signOut();
+          auth.signOut();
           show("auth-screen"); hide("room-screen"); hide("chat-app");
           var err = document.getElementById("error-msg");
           err.textContent = "Sua conta foi suspensa pelo administrador.";
@@ -1392,6 +1370,7 @@ async function checkRoomPass() {
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
     stopSeenPoll();
+    if (window._presenceHeartbeat) { clearInterval(window._presenceHeartbeat); window._presenceHeartbeat = null; }
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1451,26 +1430,47 @@ async function checkRoomPass() {
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.onDisconnect().remove();
-    presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
+    presenceRef.set({ name:myName, online:true, emoji:myEmoji||"", ts:Date.now() });
 
-    // Restaura presença automaticamente ao reconectar (tela apagada, app em bg, etc)
+    // Restaura presença automaticamente ao reconectar
     if (connectedRef) connectedRef.off();
     connectedRef = db.ref(".info/connected");
     connectedRef.on("value", function(snap) {
-      if (!snap.val()) return; // desconectado — onDisconnect cuida da remoção
+      if (!snap.val()) return;
       if (!myRoom || !myId) return;
-      // Reconectou: regravar presença
       presenceRef.onDisconnect().remove();
-      presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
+      presenceRef.set({ name:myName, online:true, emoji:myEmoji||"", ts:Date.now() });
     });
 
     presenceListenerRef = db.ref("presence/"+myRoom);
     presenceListenerRef.on("value", function(snap) {
       var val = snap.exists() ? snap.val() : {};
+      var now = Date.now();
+      var STALE_MS = 90000; // 90 segundos — considera fantasma
+
+      // Filtra entradas antigas e remove do Firebase
+      Object.keys(val).forEach(function(uid) {
+        var entry = val[uid];
+        if (!entry) return;
+        var isStale = entry.ts && (now - entry.ts) > STALE_MS;
+        if (isStale && uid !== myId) {
+          delete val[uid];
+          db.ref("presence/"+myRoom+"/"+uid).remove();
+        }
+      });
+
       var count = Object.keys(val).length;
       document.getElementById("online-count").textContent = count===1?"1 online":count+" online";
       renderMembers(val);
     });
+
+    // Atualiza o ts a cada 30s para não ser considerado fantasma
+    if (window._presenceHeartbeat) clearInterval(window._presenceHeartbeat);
+    window._presenceHeartbeat = setInterval(function() {
+      if (myRoom && myId && presenceRef) {
+        presenceRef.update({ ts: Date.now() });
+      }
+    }, 30000);
   }
 
   function listenMessagesPaged() {
