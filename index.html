@@ -620,6 +620,12 @@
   }
 
   rebuildGroupTails();
+
+  // Marca que vi as mensagens renderizadas de outros
+  if (myRoom && myId) {
+    var hasOthers = msgs.some(function(m) { return m.userId && m.userId !== myId; });
+    if (hasOthers) db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
+  }
 }
 
 function renderSingleMessage(msg, shouldNotify) {
@@ -655,6 +661,11 @@ function renderSingleMessage(msg, shouldNotify) {
     sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
     incrementUnread();
     lastNotifTs = msg.ts;
+  }
+
+  // Marca que eu vi esta mensagem (para o ✓✓ do remetente)
+  if (msg.userId !== myId && myRoom && myId) {
+    db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
   }
 
   // Notifica menção mesmo sem notificação geral
@@ -1286,6 +1297,7 @@ async function checkRoomPass() {
     listenBanStatus();
     attachMessagesScroll();
     listenRoomState();
+    listenSeen();
   }
 
   function listenRoomState() {
@@ -1360,6 +1372,7 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
+    if (seenRef) { seenRef.off(); seenRef = null; }
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1378,7 +1391,32 @@ async function checkRoomPass() {
   }
 
   var connectedRef = null;
+  var seenRef = null;
 
+  function listenSeen() {
+    if (seenRef) { seenRef.off(); seenRef = null; }
+    seenRef = db.ref("seen/" + myRoom);
+    seenRef.on("value", function(snap) {
+      if (!snap.exists()) return;
+      var val = snap.val();
+      var maxTs = 0;
+      Object.keys(val).forEach(function(uid) {
+        if (uid !== myId && val[uid] && val[uid].ts > maxTs) {
+          maxTs = val[uid].ts;
+        }
+      });
+      if (!maxTs) return;
+      document.querySelectorAll(".msg-row.own").forEach(function(row) {
+        var msgTs = parseInt(row.getAttribute("data-ts") || "0");
+        var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
+        if (!tick || !msgTs) return;
+        if (msgTs <= maxTs) {
+          tick.textContent = "✓✓";
+          tick.style.color = "#4fc3f7";
+        }
+      });
+    });
+  }
 
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
