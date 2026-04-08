@@ -1396,9 +1396,26 @@ async function checkRoomPass() {
 
   var connectedRef = null;
   function listenReadReceipts() {
-    // Usa o presenceListenerRef já existente — reutiliza o mesmo nó presence
-    // presence/<room>/<uid>/lastRead = timestamp de quando o usuário leu pela última vez
-    // Chamado sempre que o presence muda (já está sendo escutado em setupPresence)
+    // Escuta TODOS os lastRead da sala de uma vez, independente do presence
+    detachTickListeners();
+    var roomRef = db.ref("presence/" + myRoom);
+    // listener no nó inteiro da sala — dispara quando qualquer lastRead muda
+    var ref = roomRef;
+    ref.on("value", function(snap) {
+      if (!snap.exists()) return;
+      var val = snap.val();
+      var maxTs = 0;
+      Object.keys(val).forEach(function(uid) {
+        if (uid === myId) return;
+        var ts = (val[uid] && val[uid].lastRead) || 0;
+        if (ts > maxTs) maxTs = ts;
+      });
+      if (maxTs > globalMaxRead) {
+        globalMaxRead = maxTs;
+        applyTicks(globalMaxRead);
+      }
+    });
+    tickListeners["__room__"] = ref;
   }
 
   // ── Read receipts: listener dedicado por membro ──
