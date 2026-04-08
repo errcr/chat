@@ -3,22 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Secret Chat — Chat em tempo real</title>
-  <meta name="description" content="Secret Chat: converse em tempo real com segurança. Entre numa sala, troque mensagens e reações ao instante."/>
-  <meta name="robots" content="index, follow"/>
-  <link rel="canonical" href="https://secretchat.com.br/"/>
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico"/>
-  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png"/>
-  <link rel="apple-touch-icon" href="/icon-192.png"/>
-  <meta property="og:type" content="website"/>
-  <meta property="og:url" content="https://secretchat.com.br/"/>
-  <meta property="og:title" content="Secret Chat — Chat em tempo real"/>
-  <meta property="og:description" content="Converse em tempo real com segurança. Entre numa sala, troque mensagens e reações ao instante."/>
-  <meta property="og:image" content="https://secretchat.com.br/icon-512.png"/>
-  <meta name="twitter:card" content="summary"/>
-  <meta name="twitter:title" content="Secret Chat"/>
-  <meta name="twitter:description" content="Chat em tempo real seguro e simples."/>
-  <meta name="twitter:image" content="https://secretchat.com.br/icon-512.png"/>
+  <title>Secret Chat</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1098,12 +1083,7 @@ function buildMessageRow(msg) {
     };
     if (isRegisterMode) {
       auth.createUserWithEmailAndPassword(email, password)
-        .then(function(cred) {
-          return cred.user.updateProfile({ displayName: name }).then(function() {
-            authInitialized = true;
-            checkBanned(cred.user);
-          });
-        })
+        .then(function(cred) { return cred.user.updateProfile({ displayName: name }); })
         .catch(function(e) { btn.disabled=false; btn.textContent="Criar conta"; showError(msgs[e.code]||"Erro: "+e.message); });
     } else {
       auth.signInWithEmailAndPassword(email, password)
