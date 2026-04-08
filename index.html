@@ -120,8 +120,6 @@
     .bubble.theirs { background:var(--surface2); border-radius:18px 18px 18px 4px; color:var(--text); }
     .bubble.mine { background:var(--accent); border-radius:18px 18px 4px 18px; color:#fff; }
     .msg-time { font-size:10px; color:var(--muted); margin-top:3px; padding:0 4px; font-family:var(--mono); }
-    .msg-tick { font-size:10px; margin-left:3px; color:var(--muted); }
-    .msg-tick.read { color:#4fc3f7; }
     #typing-indicator { display:none; padding:0 16px 8px; font-size:12px; color:var(--muted); font-family:var(--mono); }
     .input-bar { padding:14px 16px; background:var(--surface); border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
     .input-wrap { flex:1; display:flex; flex-direction:column; background:var(--surface2); border-radius:14px; border:1.5px solid var(--border); transition:border-color .2s; }
@@ -621,11 +619,6 @@
 
   rebuildGroupTails();
 
-  // Marca que vi as mensagens renderizadas de outros
-  if (myRoom && myId) {
-    var hasOthers = msgs.some(function(m) { return m.userId && m.userId !== myId; });
-    if (hasOthers) db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
-  }
 }
 
 function renderSingleMessage(msg, shouldNotify) {
@@ -663,10 +656,6 @@ function renderSingleMessage(msg, shouldNotify) {
     lastNotifTs = msg.ts;
   }
 
-  // Marca que eu vi esta mensagem (para o ✓✓ do remetente)
-  if (msg.userId !== myId && myRoom && myId) {
-    db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
-  }
 
   // Notifica menção mesmo sem notificação geral
   if (shouldNotify && msg.text && msg.userId !== myId) {
@@ -788,7 +777,7 @@ function buildMessageRow(msg) {
         '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
         '<div class="bubble mine" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
         reactionsHtml +
-        '<div class="msg-time">' + fmtTime(msg.ts) + '<span class="msg-tick" id="tick-' + msg.id + '">✓</span></div>' +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
       '</div>' +
       emojiPickerHtml;
   } else {
@@ -1297,7 +1286,6 @@ async function checkRoomPass() {
     listenBanStatus();
     attachMessagesScroll();
     listenRoomState();
-    listenSeen();
   }
 
   function listenRoomState() {
@@ -1372,8 +1360,6 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
-    if (seenRef) { seenRef.off(); seenRef = null; }
-    seenMaxTs = 0;
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1392,45 +1378,6 @@ async function checkRoomPass() {
   }
 
   var connectedRef = null;
-  var seenRef = null;
-
-  var seenMaxTs = 0;
-
-  function applySeenTicks() {
-    document.querySelectorAll(".msg-row.own").forEach(function(row) {
-      var msgTs = parseInt(row.getAttribute("data-ts") || "0");
-      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
-      if (!tick || !msgTs) return;
-      if (msgTs <= seenMaxTs) {
-        tick.textContent = "✓✓";
-        tick.style.color = "#4fc3f7";
-      }
-    });
-  }
-
-  function handleSeenSnap(snap) {
-    if (!snap || !snap.val()) return;
-    var val = snap.val();
-    var uid = snap.key;
-    if (uid === myId) return;
-    var ts = val.ts || 0;
-    if (ts > seenMaxTs) {
-      seenMaxTs = ts;
-      applySeenTicks();
-    }
-  }
-
-  function listenSeen() {
-    if (seenRef) { seenRef.off(); seenRef = null; }
-    seenMaxTs = 0;
-    seenMaxTs = 0;
-    seenRef = db.ref("seen/" + myRoom);
-    // child_added: pega estado atual de cada membro
-    seenRef.on("child_added",   handleSeenSnap);
-    // child_changed: detecta quando alguém atualiza o ts
-    seenRef.on("child_changed", handleSeenSnap);
-  }
-
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.onDisconnect().remove();
