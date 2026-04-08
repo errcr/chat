@@ -1373,6 +1373,7 @@ async function checkRoomPass() {
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
     if (seenRef) { seenRef.off(); seenRef = null; }
+    seenMaxTs = 0;
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1393,29 +1394,41 @@ async function checkRoomPass() {
   var connectedRef = null;
   var seenRef = null;
 
+  var seenMaxTs = 0;
+
+  function applySeenTicks() {
+    document.querySelectorAll(".msg-row.own").forEach(function(row) {
+      var msgTs = parseInt(row.getAttribute("data-ts") || "0");
+      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
+      if (!tick || !msgTs) return;
+      if (msgTs <= seenMaxTs) {
+        tick.textContent = "✓✓";
+        tick.style.color = "#4fc3f7";
+      }
+    });
+  }
+
+  function handleSeenSnap(snap) {
+    if (!snap || !snap.val()) return;
+    var val = snap.val();
+    var uid = snap.key;
+    if (uid === myId) return;
+    var ts = val.ts || 0;
+    if (ts > seenMaxTs) {
+      seenMaxTs = ts;
+      applySeenTicks();
+    }
+  }
+
   function listenSeen() {
     if (seenRef) { seenRef.off(); seenRef = null; }
+    seenMaxTs = 0;
+    seenMaxTs = 0;
     seenRef = db.ref("seen/" + myRoom);
-    seenRef.on("value", function(snap) {
-      if (!snap.exists()) return;
-      var val = snap.val();
-      var maxTs = 0;
-      Object.keys(val).forEach(function(uid) {
-        if (uid !== myId && val[uid] && val[uid].ts > maxTs) {
-          maxTs = val[uid].ts;
-        }
-      });
-      if (!maxTs) return;
-      document.querySelectorAll(".msg-row.own").forEach(function(row) {
-        var msgTs = parseInt(row.getAttribute("data-ts") || "0");
-        var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
-        if (!tick || !msgTs) return;
-        if (msgTs <= maxTs) {
-          tick.textContent = "✓✓";
-          tick.style.color = "#4fc3f7";
-        }
-      });
-    });
+    // child_added: pega estado atual de cada membro
+    seenRef.on("child_added",   handleSeenSnap);
+    // child_changed: detecta quando alguém atualiza o ts
+    seenRef.on("child_changed", handleSeenSnap);
   }
 
   function setupPresence() {
