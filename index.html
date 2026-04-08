@@ -223,9 +223,9 @@
     .reply-btn { background:none; border:none; cursor:pointer; font-size:13px; padding:2px 5px; border-radius:6px; color:var(--muted); transition:background .15s,color .15s; }
     .reply-btn:hover { background:var(--surface2); color:var(--text); }
     /* ── Read receipts ── */
-    .msg-tick { font-size:11px; color:var(--muted); margin-left:3px; transition:color .3s; display:inline-block; }
-    .msg-tick.sent     { color:var(--muted) !important; }
-    .msg-tick.read     { color:#60c0f8 !important; }
+    .msg-tick { font-size:11px; margin-left:4px; }
+    .msg-tick.sent { color:var(--muted); }
+    .msg-tick.read { color:#4fc3f7; }
     /* ── Menção @nome (Feature 6) ── */
     #mention-list { display:none; position:absolute; bottom:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:12px 12px 0 0; overflow:hidden; z-index:30; box-shadow:0 -4px 20px #0003; max-height:180px; overflow-y:auto; }
     .mention-item { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; transition:background .15s; font-size:13.5px; }
@@ -622,6 +622,15 @@
   }
 
   rebuildGroupTails();
+
+  // Marca mensagens de outros como vistas
+  if (myRoom && myId) {
+    msgs.forEach(function(msg) {
+      if (msg.userId && msg.userId !== myId) {
+        db.ref("messages/"+myRoom+"/"+msg.id+"/seenBy/"+myId).set(true);
+      }
+    });
+  }
 }
 
 function renderSingleMessage(msg, shouldNotify) {
@@ -639,10 +648,6 @@ function renderSingleMessage(msg, shouldNotify) {
   container.appendChild(row);
   rebuildGroupTails();
 
-  // Aplica tick correto na mensagem recém renderizada
-  if (msg.userId === myId && globalMaxRead) {
-    applyTicks(globalMaxRead);
-  }
 
   // Conta mensagens fora do viewport para o botão flutuante
   var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
@@ -661,6 +666,11 @@ function renderSingleMessage(msg, shouldNotify) {
     sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
     incrementUnread();
     lastNotifTs = msg.ts;
+  }
+
+  // Marca mensagem como vista (para o tick ✓✓ do remetente)
+  if (msg.userId !== myId && myRoom && myId) {
+    db.ref("messages/"+myRoom+"/"+msg.id+"/seenBy/"+myId).set(true);
   }
 
   // Notifica menção mesmo sem notificação geral
@@ -693,9 +703,6 @@ function attachMessagesScroll() {
     if (nearBottom && newMsgsBelowCount > 0) {
       newMsgsBelowCount = 0;
       updateNewMsgsBtn();
-      if (myRoom && myId) {
-        db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
-      }
     }
   });
 
@@ -974,10 +981,6 @@ function buildMessageRow(msg) {
   document.addEventListener("visibilitychange", function() {
     if (!document.hidden) {
       resetUnread();
-      // Atualiza lastRead ao voltar para o app
-      if (myRoom && myId) {
-        db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
-      }
     }
   });
   var swRegistration = null;
@@ -1241,8 +1244,6 @@ async function checkRoomPass() {
 
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
-  var globalMaxRead = 0;
-  var tickListeners = {};
   var roomSettingsListenerRef = null;
   var typingTimeout=null, isTyping=false, renderedIds={}, lastUserId=null;
 
@@ -1301,7 +1302,6 @@ async function checkRoomPass() {
     listenBanStatus();
     attachMessagesScroll();
     listenRoomState();
-    listenReadReceipts();
   }
 
   function listenRoomState() {
@@ -1376,7 +1376,6 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
-    detachTickListeners();
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1395,81 +1394,12 @@ async function checkRoomPass() {
   }
 
   var connectedRef = null;
-  function listenReadReceipts() {
-    // Escuta TODOS os lastRead da sala de uma vez, independente do presence
-    detachTickListeners();
-    var roomRef = db.ref("presence/" + myRoom);
-    // listener no nó inteiro da sala — dispara quando qualquer lastRead muda
-    var ref = roomRef;
-    ref.on("value", function(snap) {
-      if (!snap.exists()) return;
-      var val = snap.val();
-      var maxTs = 0;
-      Object.keys(val).forEach(function(uid) {
-        if (uid === myId) return;
-        var ts = (val[uid] && val[uid].lastRead) || 0;
-        if (ts > maxTs) maxTs = ts;
-      });
-      if (maxTs > globalMaxRead) {
-        globalMaxRead = maxTs;
-        applyTicks(globalMaxRead);
-      }
-    });
-    tickListeners["__room__"] = ref;
-  }
 
-  // ── Read receipts: listener dedicado por membro ──
-  function applyTicks(maxReadTs) {
-    if (!maxReadTs) return;
-    document.querySelectorAll(".msg-row.own").forEach(function(row) {
-      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
-      if (!tick) return;
-      var msgTs = parseInt(row.getAttribute("data-ts") || "0");
-      if (!msgTs) return;
-      if (msgTs <= maxReadTs) {
-        tick.textContent = "✓✓";
-        tick.style.cssText = "color:#60c0f8!important;font-size:11px;margin-left:3px";
-      } else {
-        tick.textContent = "✓";
-        tick.style.cssText = "color:var(--muted);font-size:11px;margin-left:3px";
-      }
-    });
-  }
-
-  function attachTickListener(uid) {
-    if (tickListeners[uid]) return; // já escutando
-    var ref = db.ref("presence/" + myRoom + "/" + uid + "/lastRead");
-    ref.on("value", function(snap) {
-      var ts = snap.val() || 0;
-      if (ts > globalMaxRead) {
-        globalMaxRead = ts;
-        applyTicks(globalMaxRead);
-      }
-    });
-    tickListeners[uid] = ref;
-  }
-
-  function detachTickListeners() {
-    Object.keys(tickListeners).forEach(function(uid) {
-      tickListeners[uid].off();
-    });
-    tickListeners = {};
-    globalMaxRead = 0;
-  }
-
-  function updateTicksFromPresence(presenceVal) {
-    if (!presenceVal || !myId) return;
-    // Attach individual listeners for each other member
-    Object.keys(presenceVal).forEach(function(uid) {
-      if (uid !== myId) attachTickListener(uid);
-    });
-  }
 
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.onDisconnect().remove();
-    // update() em vez de set() para não apagar o lastRead
-    presenceRef.update({ name:myName, online:true, emoji:myEmoji||"", lastRead:Date.now() });
+    presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
 
     // Restaura presença automaticamente ao reconectar (tela apagada, app em bg, etc)
     if (connectedRef) connectedRef.off();
@@ -1478,7 +1408,7 @@ async function checkRoomPass() {
       if (!snap.val()) return;
       if (!myRoom || !myId) return;
       presenceRef.onDisconnect().remove();
-      presenceRef.update({ name:myName, online:true, emoji:myEmoji||"", lastRead:Date.now() });
+      presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
     });
 
     presenceListenerRef = db.ref("presence/"+myRoom);
@@ -1487,7 +1417,6 @@ async function checkRoomPass() {
       var count = Object.keys(val).length;
       document.getElementById("online-count").textContent = count===1?"1 online":count+" online";
       renderMembers(val);
-      updateTicksFromPresence(val);
     });
   }
 
@@ -1565,10 +1494,6 @@ function attachRealtimeNewMessages() {
     renderSingleMessage(fullMsg, true);
     scrollBottom();
 
-    // Atualiza lastRead no presence — o usuário está vendo as mensagens chegarem
-    if (myRoom && myId) {
-      db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
-    }
   });
 
   msgListenerRef = db.ref("messages/" + myRoom);
@@ -1578,6 +1503,19 @@ function attachRealtimeNewMessages() {
     if (!renderedIds[snap.key]) return;
 
     renderReactions(snap.key, msg.reactions || {});
+
+    // Atualiza tick se for mensagem própria e alguém viu
+    if (msg.userId === myId && msg.seenBy) {
+      var others = Object.keys(msg.seenBy).filter(function(uid) { return uid !== myId; });
+      if (others.length > 0) {
+        var tick = document.getElementById("tick-" + snap.key);
+        if (tick) {
+          tick.textContent = "✓✓";
+          tick.className = "msg-tick read";
+          tick.style.color = "#4fc3f7";
+        }
+      }
+    }
   });
 }
 
@@ -2016,7 +1954,6 @@ function addStrike() {
     newMsgsBelowCount = 0;
     updateNewMsgsBtn();
     if (myRoom && myId) {
-      db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
     }
   }
 
