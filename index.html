@@ -1326,12 +1326,26 @@ async function checkRoomPass() {
 
     document.getElementById("room-pass-input").value = "";
     document.getElementById("room-new-pass").value = "";
-    document.getElementById("room-input").value = "";
     document.getElementById("members-panel").classList.remove("open");
 
     hideRoomPass();
     hideOwnerSettings();
     resetUnread();
+
+    // Restaura última sala no campo ao voltar
+    renderRecentRooms();
+    var uid = auth.currentUser ? auth.currentUser.uid : null;
+    if (uid) {
+      var rooms = JSON.parse(localStorage.getItem("recent_rooms_" + uid) || "[]");
+      if (rooms.length) {
+        document.getElementById("room-input").value = rooms[0];
+        checkRoomPass();
+      } else {
+        document.getElementById("room-input").value = "";
+      }
+    } else {
+      document.getElementById("room-input").value = "";
+    }
   }
 
   function cleanupListeners() {
