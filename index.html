@@ -1110,17 +1110,10 @@ async function checkRoomPass() {
       return;
     }
 
-    // CORRIGIDO: não ejetar usuários apenas porque ownerUid não está visível.
-    // As regras do Firebase podem ocultar ownerUid para não-donos, fazendo
-    // data.ownerUid chegar undefined — o que derrubava todos que não eram donos.
-    // Agora só ejeta se: o usuário É o dono E ownerUid sumiu do banco (sala deletada de outro jeito).
-    var data = snap.val() || {};
-    var isOwner = data.ownerUid && data.ownerUid === myId;
-    if (isOwner && !data.ownerUid) {
-      alert("⚠️ Esta sala ficou inválida e foi encerrada.");
-      leaveRoom();
-      return;
-    }
+    // CORRIGIDO: não ejetar usuários porque ownerUid não está visível.
+    // As regras do Firebase ocultam ownerUid para não-donos → data.ownerUid
+    // chegava undefined → todos eram expulsos ao entrar na sala.
+    // A única ejeção válida é se o snap não existir (sala deletada), já tratado acima.
   });
 }
 
@@ -1238,10 +1231,14 @@ function showOwnerSettings() {
 function attachRealtimeNewMessages() {
   detachMessageRealtime();
 
+  // CORRIGIDO: usar startAt(newestLoadedTs + 1) para não perder mensagens
+  // com ts igual ao último carregado, e nunca usar startAt sem +1 pois
+  // o Firebase inclui o valor exato — causando mensagens duplicadas ou
+  // mensagens novas sendo ignoradas por colisão de timestamp.
   if (newestLoadedTs == null) {
     childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts");
   } else {
-    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs);
+    childAddedRef = db.ref("messages/" + myRoom).orderByChild("ts").startAt(newestLoadedTs + 1);
   }
 
   childAddedRef.on("child_added", function(snap) {
@@ -1250,10 +1247,7 @@ function attachRealtimeNewMessages() {
 
     var fullMsg = Object.assign({ id: snap.key }, msg);
 
-    if (renderedIds[fullMsg.id]) return;
-
-    renderSingleMessage(fullMsg, true);
-
+    // Guarda sempre independente de renderedIds para atualizar newestLoadedTs
     if (newestLoadedTs == null || fullMsg.ts > newestLoadedTs) {
       newestLoadedTs = fullMsg.ts;
     }
@@ -1263,6 +1257,9 @@ function attachRealtimeNewMessages() {
       oldestLoadedKey = fullMsg.id;
     }
 
+    if (renderedIds[fullMsg.id]) return;
+
+    renderSingleMessage(fullMsg, true);
     scrollBottom();
   });
 
