@@ -688,6 +688,9 @@ function attachMessagesScroll() {
     if (nearBottom && newMsgsBelowCount > 0) {
       newMsgsBelowCount = 0;
       updateNewMsgsBtn();
+      if (myRoom && myId) {
+        db.ref("read_receipts/"+myRoom+"/"+myId+"/ts").set(Date.now());
+      }
     }
   });
 
@@ -1402,7 +1405,7 @@ async function checkRoomPass() {
       if (!othersTs.length) return;
 
       // A mensagem mais recente que todos viram = o menor timestamp entre os outros
-      var minReadTs = Math.min.apply(null, othersTs);
+      var minReadTs = Math.max.apply(null, othersTs); // ✓✓ quando pelo menos 1 viu
 
       // Atualiza os ticks das minhas mensagens
       document.querySelectorAll(".msg-row.own").forEach(function(row) {
@@ -1527,6 +1530,11 @@ function attachRealtimeNewMessages() {
 
     renderSingleMessage(fullMsg, true);
     scrollBottom();
+
+    // Atualiza timestamp de leitura — o usuário está vendo as mensagens chegarem
+    if (myRoom && myId) {
+      db.ref("read_receipts/"+myRoom+"/"+myId+"/ts").set(Date.now());
+    }
   });
 
   msgListenerRef = db.ref("messages/" + myRoom);
@@ -1973,6 +1981,9 @@ function addStrike() {
     if (container) container.scrollTop = container.scrollHeight;
     newMsgsBelowCount = 0;
     updateNewMsgsBtn();
+    if (myRoom && myId) {
+      db.ref("read_receipts/"+myRoom+"/"+myId+"/ts").set(Date.now());
+    }
   }
 
   document.addEventListener("DOMContentLoaded", function() { 
