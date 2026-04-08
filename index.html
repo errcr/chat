@@ -120,6 +120,8 @@
     .bubble.theirs { background:var(--surface2); border-radius:18px 18px 18px 4px; color:var(--text); }
     .bubble.mine { background:var(--accent); border-radius:18px 18px 4px 18px; color:#fff; }
     .msg-time { font-size:10px; color:var(--muted); margin-top:3px; padding:0 4px; font-family:var(--mono); }
+    .msg-tick { font-size:10px; margin-left:3px; color:var(--muted); }
+    .msg-tick.read { color:#4fc3f7; }
     #typing-indicator { display:none; padding:0 16px 8px; font-size:12px; color:var(--muted); font-family:var(--mono); }
     .input-bar { padding:14px 16px; background:var(--surface); border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
     .input-wrap { flex:1; display:flex; flex-direction:column; background:var(--surface2); border-radius:14px; border:1.5px solid var(--border); transition:border-color .2s; }
@@ -618,7 +620,10 @@
   }
 
   rebuildGroupTails();
-
+  if (myRoom && myId) {
+    var hasOthers = msgs.some(function(m) { return m.userId && m.userId !== myId; });
+    if (hasOthers) db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
+  }
 }
 
 function renderSingleMessage(msg, shouldNotify) {
@@ -635,7 +640,6 @@ function renderSingleMessage(msg, shouldNotify) {
 
   container.appendChild(row);
   rebuildGroupTails();
-
 
   // Conta mensagens fora do viewport para o botão flutuante
   var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
@@ -656,6 +660,10 @@ function renderSingleMessage(msg, shouldNotify) {
     lastNotifTs = msg.ts;
   }
 
+  // Grava que eu vi (para o ✓✓ do remetente)
+  if (msg.userId !== myId && myRoom && myId) {
+    db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
+  }
 
   // Notifica menção mesmo sem notificação geral
   if (shouldNotify && msg.text && msg.userId !== myId) {
@@ -740,7 +748,6 @@ function buildMessageRow(msg) {
   row.id = "row-" + msg.id;
   row.setAttribute("data-msg-id", msg.id);
   row.setAttribute("data-user-id", msg.userId);
-  row.setAttribute("data-ts", msg.ts || "0");
 
   var avHtml =
     '<div class="avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + avContent + '</div>';
@@ -777,7 +784,7 @@ function buildMessageRow(msg) {
         '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
         '<div class="bubble mine" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
         reactionsHtml +
-        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '<span class="msg-tick" id="tick-' + msg.id + '">✓</span></div>' +
       '</div>' +
       emojiPickerHtml;
   } else {
@@ -963,9 +970,7 @@ function buildMessageRow(msg) {
   }
 
   document.addEventListener("visibilitychange", function() {
-    if (!document.hidden) {
-      resetUnread();
-    }
+    if (!document.hidden) resetUnread();
   });
   var swRegistration = null;
 
@@ -1286,6 +1291,7 @@ async function checkRoomPass() {
     listenBanStatus();
     attachMessagesScroll();
     listenRoomState();
+    startSeenPoll();
   }
 
   function listenRoomState() {
@@ -1360,6 +1366,7 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
+    stopSeenPoll();
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1378,6 +1385,44 @@ async function checkRoomPass() {
   }
 
   var connectedRef = null;
+  var seenPoll = null;
+  var seenMaxTs = 0;
+
+  function applySeenTicks() {
+    document.querySelectorAll(".msg-row.own").forEach(function(row) {
+      var msgTs = parseInt(row.getAttribute("data-ts") || "0");
+      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
+      if (!tick || !msgTs || msgTs > seenMaxTs) return;
+      tick.textContent = "✓✓";
+      tick.style.color = "#4fc3f7";
+    });
+  }
+
+  function pollSeen() {
+    if (!myRoom || !myId) return;
+    db.ref("seen/" + myRoom).once("value", function(snap) {
+      if (!snap.exists()) return;
+      var val = snap.val();
+      var maxTs = 0;
+      Object.keys(val).forEach(function(uid) {
+        if (uid !== myId && val[uid] && val[uid].ts > maxTs) maxTs = val[uid].ts;
+      });
+      if (maxTs > seenMaxTs) { seenMaxTs = maxTs; applySeenTicks(); }
+    });
+  }
+
+  function startSeenPoll() {
+    stopSeenPoll();
+    seenMaxTs = 0;
+    pollSeen();
+    seenPoll = setInterval(pollSeen, 4000);
+  }
+
+  function stopSeenPoll() {
+    if (seenPoll) { clearInterval(seenPoll); seenPoll = null; }
+    seenMaxTs = 0;
+  }
+
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.onDisconnect().remove();
@@ -1387,8 +1432,9 @@ async function checkRoomPass() {
     if (connectedRef) connectedRef.off();
     connectedRef = db.ref(".info/connected");
     connectedRef.on("value", function(snap) {
-      if (!snap.val()) return;
+      if (!snap.val()) return; // desconectado — onDisconnect cuida da remoção
       if (!myRoom || !myId) return;
+      // Reconectou: regravar presença
       presenceRef.onDisconnect().remove();
       presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
     });
@@ -1475,7 +1521,6 @@ function attachRealtimeNewMessages() {
 
     renderSingleMessage(fullMsg, true);
     scrollBottom();
-
   });
 
   msgListenerRef = db.ref("messages/" + myRoom);
@@ -1922,8 +1967,6 @@ function addStrike() {
     if (container) container.scrollTop = container.scrollHeight;
     newMsgsBelowCount = 0;
     updateNewMsgsBtn();
-    if (myRoom && myId) {
-    }
   }
 
   document.addEventListener("DOMContentLoaded", function() { 
