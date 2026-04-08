@@ -10,6 +10,13 @@ const APP_SHELL = [
   "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap"
 ];
 
+// Responde ao postMessage SKIP_WAITING vindo do cliente
+self.addEventListener("message", function(event) {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
+});
+
 // Instala e salva o shell do app
 self.addEventListener("install", function (event) {
   event.waitUntil(
@@ -55,15 +62,19 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  // HTML: network first, fallback para cache
-  if (request.mode === "navigate" || request.headers.get("accept")?.includes("text/html")) {
+  // HTML: sempre rede primeiro, nunca serve cache direto
+  // Safari/iOS é muito agressivo com cache de SW — forçar network garante
+  // que o usuário sempre receba a versão mais recente do app
+  if (request.mode === "navigate" || (request.headers.get("accept") && request.headers.get("accept").includes("text/html"))) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-store" })
         .then(function (response) {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then(function (cache) {
-            cache.put("/index.html", copy);
-          });
+          if (response && response.status === 200) {
+            var copy = response.clone();
+            caches.open(CACHE_NAME).then(function (cache) {
+              cache.put("/index.html", copy);
+            });
+          }
           return response;
         })
         .catch(function () {

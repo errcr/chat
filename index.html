@@ -856,11 +856,41 @@ function buildMessageRow(msg) {
   });
   var swRegistration = null;
 
-  // Registra Service Worker
+  // Registra Service Worker — com forçar update no Safari/iOS
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw.js").then(function(reg) {
+    navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(function(reg) {
       swRegistration = reg;
+
+      // Força verificação de atualização imediata
+      reg.update();
+
+      // Se há um SW esperando (novo), ativa imediatamente
+      if (reg.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
+
+      // Escuta quando um novo SW fica em espera
+      reg.addEventListener("updatefound", function() {
+        var newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener("statechange", function() {
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            // Novo SW instalado — recarrega para ativar
+            window.location.reload();
+          }
+        });
+      });
+
     }).catch(function(e) { console.log("SW error:", e); });
+
+    // Recarrega quando o SW muda (Safari precisa disso)
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", function() {
+      if (!refreshing) {
+        refreshing = true;
+        window.location.reload();
+      }
+    });
   }
 
   function requestNotifPermission() {
