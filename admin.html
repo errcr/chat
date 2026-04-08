@@ -402,6 +402,13 @@
       animation: spin 0.6s linear infinite;
     }
 
+    /* ── Stats ── */
+    #stats-chart { width:100% !important; }
+    .stats-summary-card { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+    .stats-summary-card .label { font-size:11px;font-weight:700;color:var(--muted);font-family:var(--mono);text-transform:uppercase;margin-bottom:4px; }
+    .stats-summary-card .value { font-size:22px;font-weight:800;color:var(--accent2); }
+    .stats-summary-card .sub { font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px; }
+
     @media (max-width: 640px) {
       .rooms-layout { grid-template-columns: 1fr; }
       .stats-row { grid-template-columns: 1fr 1fr; }
@@ -519,6 +526,7 @@
     <button class="tab active" onclick="switchTab('users')"    id="tab-users">👥 Usuários</button>
     <button class="tab"        onclick="switchTab('messages')" id="tab-messages">💬 Conversas</button>
     <button class="tab"        onclick="switchTab('online')"   id="tab-online">🟢 Online agora</button>
+    <button class="tab"        onclick="switchTab('stats')"    id="tab-stats">📊 Histórico</button>
   </div>
 
   <!-- USERS TAB -->
@@ -587,6 +595,22 @@
       <div class="no-online"><span class="icon">😴</span>Nenhum usuário online no momento.</div>
     </div>
   </div>
+
+  <!-- STATS TAB -->
+  <div class="content" id="pane-stats" style="display:none">
+    <div class="section-title">Histórico de mensagens</div>
+    <div class="section-sub">Mensagens por dia nos últimos 14 dias, por sala.</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <label style="font-size:12px;font-weight:700;color:var(--muted);font-family:var(--mono);text-transform:uppercase">Sala:</label>
+      <select id="stats-room-select" onchange="renderStatsChart()" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 12px;cursor:pointer">
+        <option value="__all__">Todas as salas</option>
+      </select>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px">
+      <canvas id="stats-chart" height="100"></canvas>
+    </div>
+    <div id="stats-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:16px"></div>
+  </div>
 </div>
 
 
@@ -615,6 +639,7 @@
     </div>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
@@ -768,12 +793,13 @@
   var activeTab = "users";
   window.switchTab = function(tab) {
     activeTab = tab;
-    ["users","messages","online"].forEach(function(t) {
+    ["users","messages","online","stats"].forEach(function(t) {
       document.getElementById("pane-" + t).style.display = t === tab ? "block" : "none";
       document.getElementById("tab-"  + t).classList.toggle("active", t === tab);
     });
     if (tab === "online") renderOnlineTab();
     if (tab === "users")  refreshUsersTable();
+    if (tab === "stats")  initStatsTab();
   };
 
   // ── Data ──
@@ -1487,6 +1513,112 @@ function refreshUsersTable() {
           attachAdminRealtime(room); 
         });
     };
+
+  // ── Stats / Histórico (Feature 10) ──
+  var statsChartInstance = null;
+
+  function initStatsTab() {
+    // Populate room select
+    var sel = document.getElementById("stats-room-select");
+    var current = sel.value;
+    sel.innerHTML = '<option value="__all__">Todas as salas</option>' +
+      allRooms.map(function(r) {
+        return '<option value="' + r + '"' + (r === current ? " selected" : "") + '>' + r + '</option>';
+      }).join("");
+    renderStatsChart();
+  }
+
+  window.renderStatsChart = function() {
+    var sel = document.getElementById("stats-room-select");
+    var selectedRoom = sel ? sel.value : "__all__";
+
+    // Build last 14 days labels
+    var days = [];
+    var labels = [];
+    for (var i = 13; i >= 0; i--) {
+      var d = new Date();
+      d.setDate(d.getDate() - i);
+      d.setHours(0,0,0,0);
+      days.push(d.getTime());
+      labels.push(d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" }));
+    }
+
+    // Count messages per day
+    var counts = new Array(14).fill(0);
+    var totalMsgs = 0;
+    var busyDay = { label:"—", count:0 };
+    var roomsToScan = selectedRoom === "__all__" ? Object.keys(allMessagesData) : [selectedRoom];
+
+    roomsToScan.forEach(function(room) {
+      var msgs = allMessagesData[room] || {};
+      Object.values(msgs).forEach(function(msg) {
+        if (!msg || !msg.ts) return;
+        var ts = msg.ts;
+        for (var i = 0; i < days.length; i++) {
+          var dayStart = days[i];
+          var dayEnd = i < days.length - 1 ? days[i+1] : dayStart + 86400000;
+          if (ts >= dayStart && ts < dayEnd) {
+            counts[i]++;
+            totalMsgs++;
+            if (counts[i] > busyDay.count) {
+              busyDay = { label: labels[i], count: counts[i] };
+            }
+            break;
+          }
+        }
+      });
+    });
+
+    // Summary cards
+    var avgPerDay = totalMsgs > 0 ? Math.round(totalMsgs / 14) : 0;
+    document.getElementById("stats-summary").innerHTML = [
+      { label:"Total 14 dias", value: totalMsgs, sub:"mensagens" },
+      { label:"Média por dia", value: avgPerDay, sub:"mensagens/dia" },
+      { label:"Dia mais ativo", value: busyDay.label, sub: busyDay.count + " mensagens" },
+      { label:"Salas no período", value: selectedRoom === "__all__" ? roomsToScan.length : 1, sub:"sala" + (roomsToScan.length !== 1 ? "s" : "") }
+    ].map(function(c) {
+      return '<div class="stats-summary-card"><div class="label">' + c.label + '</div><div class="value">' + c.value + '</div><div class="sub">' + c.sub + '</div></div>';
+    }).join("");
+
+    // Draw chart
+    var ctx = document.getElementById("stats-chart").getContext("2d");
+    if (statsChartInstance) statsChartInstance.destroy();
+
+    var isDarkMode = !document.body.classList.contains("light");
+    var gridColor = isDarkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+    var textColor = isDarkMode ? "#6b6880" : "#6d6a85";
+
+    statsChartInstance = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: labels,
+        datasets: [{
+          label: "Mensagens",
+          data: counts,
+          backgroundColor: "rgba(124,106,247,0.5)",
+          borderColor: "#7c6af7",
+          borderWidth: 2,
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return ctx.parsed.y + " mensagens"; }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: gridColor }, ticks: { color: textColor, font: { family:"DM Mono" } } },
+          y: { beginAtZero: true, grid: { color: gridColor }, ticks: { color: textColor, font: { family:"DM Mono" }, precision:0 } }
+        }
+      }
+    });
+  };
 
   function renderOnlineTab() {
     if (activeTab !== "online") return;

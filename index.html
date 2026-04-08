@@ -85,6 +85,9 @@
     body.room-mode .input-field:focus { border-color:rgba(255,255,255,.6); background:rgba(255,255,255,.22); }
     body.room-mode details summary { color:rgba(255,255,255,.7); }
     body.room-mode #room-pass-saved { color:#a7f3d0; }
+    .recent-rooms { display:flex; flex-wrap:wrap; gap:6px; width:100%; }
+    .recent-chip { padding:5px 12px; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2); border-radius:20px; font-size:12px; color:rgba(255,255,255,.85); font-family:var(--mono); cursor:pointer; transition:background .2s,border-color .2s; }
+    .recent-chip:hover { background:rgba(255,255,255,.22); border-color:rgba(255,255,255,.4); }
     body.room-mode #room-pass-error { color:#fecaca; }
     #chat-app {
       display: none;
@@ -219,6 +222,16 @@
     .reply-bar .reply-txt { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; }
     .reply-btn { background:none; border:none; cursor:pointer; font-size:13px; padding:2px 5px; border-radius:6px; color:var(--muted); transition:background .15s,color .15s; }
     .reply-btn:hover { background:var(--surface2); color:var(--text); }
+    /* ── Menção @nome (Feature 6) ── */
+    #mention-list { display:none; position:absolute; bottom:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:12px 12px 0 0; overflow:hidden; z-index:30; box-shadow:0 -4px 20px #0003; max-height:180px; overflow-y:auto; }
+    .mention-item { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; transition:background .15s; font-size:13.5px; }
+    .mention-item:hover { background:var(--surface2); }
+    .mention-item .av { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; font-family:var(--mono); }
+    .mention-tag { color:var(--accent2); font-weight:800; background:var(--accent)18; border-radius:4px; padding:0 3px; }
+    /* ── Botão novas mensagens (Feature 7) ── */
+    #new-msgs-btn { display:none; position:absolute; bottom:80px; left:50%; transform:translateX(-50%); background:var(--accent); color:#fff; border:none; border-radius:20px; padding:8px 18px; font-size:13px; font-family:var(--mono); font-weight:700; cursor:pointer; box-shadow:0 4px 16px #7c6af755; z-index:20; white-space:nowrap; animation:fadeUp .2s ease; transition:opacity .2s; }
+    #new-msgs-btn:hover { background:var(--accent2); }
+    #chat-app { position:relative; }
   </style>
 </head>
 <body>
@@ -271,6 +284,7 @@
     <div class="email" id="greeting-email"></div>
   </div>
   <div class="auth-sub">Escolha uma sala para entrar:</div>
+  <div class="recent-rooms" id="recent-rooms-list"></div>
 
   <div class="input-group">
     <span class="input-label">Sala</span>
@@ -330,7 +344,8 @@
   </div>
   <div id="typing-indicator"></div>
   <div class="input-bar">
-    <div class="input-wrap">
+    <div class="input-wrap" style="position:relative">
+      <div id="mention-list"></div>
       <div class="reply-preview" id="reply-preview">
         <div class="reply-preview-text">↩ <span class="reply-preview-name" id="reply-preview-name"></span>: <span id="reply-preview-txt"></span></div>
         <button class="reply-cancel" onclick="cancelReply()">✕</button>
@@ -366,6 +381,7 @@
 
 <div class="emoji-avatar-picker" id="emoji-av-picker" style="position:fixed;top:56px;left:10px;z-index:200"></div>
 
+<button id="new-msgs-btn" onclick="jumpToBottom()"></button>
 <div id="lightbox" onclick="this.classList.remove('open')">
   <img id="lb-img" src="" alt=""/>
 </div>
@@ -467,6 +483,70 @@
     }).join("");
   }
 
+  // ── Menção @nome (Feature 6) ──
+  var mentionQuery = null;
+  var mentionStart = -1;
+
+  function handleMentionInput(input) {
+    var val = input.value;
+    var pos = input.selectionStart;
+    // Procura @ antes do cursor
+    var before = val.slice(0, pos);
+    var atIdx = before.lastIndexOf("@");
+    if (atIdx === -1 || (atIdx > 0 && /\S/.test(val[atIdx - 1]))) {
+      closeMentionList();
+      return;
+    }
+    var query = before.slice(atIdx + 1).toLowerCase();
+    // Fecha se espaço no query
+    if (/\s/.test(query)) { closeMentionList(); return; }
+    mentionQuery = query;
+    mentionStart = atIdx;
+    var members = Object.values(membersData).filter(function(m) {
+      return m.name.toLowerCase().includes(query) && m.name !== myName;
+    });
+    if (!members.length) { closeMentionList(); return; }
+    var list = document.getElementById("mention-list");
+    list.style.display = "block";
+    list.innerHTML = members.map(function(m) {
+      var color = colorFor(m.name);
+      var av = m.emoji || initials(m.name);
+      return '<div class="mention-item" onmousedown="event.preventDefault();insertMention('' + escHtml(m.name) + '')">' +
+        '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + av + '</div>' +
+        '<span>' + escHtml(m.name) + '</span>' +
+        '</div>';
+    }).join("");
+  }
+
+  function insertMention(name) {
+    var input = document.getElementById("msg-input");
+    var val = input.value;
+    var pos = input.selectionStart;
+    var before = val.slice(0, mentionStart);
+    var after = val.slice(pos);
+    input.value = before + "@" + name + " " + after;
+    input.focus();
+    var newPos = before.length + name.length + 2;
+    input.setSelectionRange(newPos, newPos);
+    closeMentionList();
+    // Trigger send btn state
+    document.getElementById("send-btn").disabled = !input.value.trim() && !pendingImg;
+  }
+
+  function closeMentionList() {
+    mentionQuery = null;
+    mentionStart = -1;
+    var list = document.getElementById("mention-list");
+    if (list) list.style.display = "none";
+  }
+
+  function linkifyMentions(html) {
+    // Destaca @nome nas bolhas
+    return html.replace(/@([A-Za-zÀ-ÿ0-9_. ]+?)(?=\s|$|<)/g, function(match, name) {
+      return '<span class="mention-tag">' + match + '</span>';
+    });
+  }
+
   // ── Copiar ao segurar ──
   var pressTimer = null;
   function setupLongPress(el, text) {
@@ -555,6 +635,13 @@ function renderSingleMessage(msg, shouldNotify) {
   container.appendChild(row);
   rebuildGroupTails();
 
+  // Conta mensagens fora do viewport para o botão flutuante
+  var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
+  if (!nearBottom && shouldNotify && msg.userId !== myId) {
+    newMsgsBelowCount++;
+    updateNewMsgsBtn();
+  }
+
   if (
     shouldNotify &&
     msg.ts > lastNotifTs &&
@@ -565,6 +652,21 @@ function renderSingleMessage(msg, shouldNotify) {
     sendPushNotif(msg.name, msg.image ? "[imagem]" : (msg.text || ""));
     incrementUnread();
     lastNotifTs = msg.ts;
+  }
+
+  // Notifica menção mesmo sem notificação geral
+  if (shouldNotify && msg.text && msg.userId !== myId) {
+    if (msg.text.toLowerCase().includes("@" + myName.toLowerCase())) {
+      playNotif();
+      var mentionEl = document.getElementById("row-" + msg.id);
+      if (mentionEl) {
+        mentionEl.style.outline = "2px solid var(--accent)";
+        mentionEl.style.borderRadius = "12px";
+        setTimeout(function() {
+          if (mentionEl) mentionEl.style.outline = "";
+        }, 3000);
+      }
+    }
   }
 }
 
@@ -577,6 +679,11 @@ function attachMessagesScroll() {
   container.addEventListener("scroll", function() {
     if (container.scrollTop < 120) {
       loadOlderMessages();
+    }
+    var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
+    if (nearBottom && newMsgsBelowCount > 0) {
+      newMsgsBelowCount = 0;
+      updateNewMsgsBtn();
     }
   });
 
@@ -656,7 +763,7 @@ function buildMessageRow(msg) {
   var bubbleContent = replyQuote + (
     msg.image
       ? '<img class="bubble-img" src="' + msg.image + '" onclick="event.stopPropagation();openLightbox(this.src)" alt="imagem"/>'
-      : linkify(msg.text || "")
+      : linkifyMentions(linkify(msg.text || ""))
   );
 
   if (isOwn) {
@@ -1009,6 +1116,33 @@ function buildMessageRow(msg) {
     });
   }
 
+  // ── Salas recentes (Feature 3) ──
+  function saveRecentRoom(room) {
+    var key = "recent_rooms_" + (auth.currentUser ? auth.currentUser.uid : "anon");
+    var rooms = JSON.parse(localStorage.getItem(key) || "[]");
+    rooms = rooms.filter(function(r) { return r !== room; });
+    rooms.unshift(room);
+    rooms = rooms.slice(0, 5);
+    localStorage.setItem(key, JSON.stringify(rooms));
+    renderRecentRooms();
+  }
+
+  function renderRecentRooms() {
+    var key = "recent_rooms_" + (auth.currentUser ? auth.currentUser.uid : "anon");
+    var rooms = JSON.parse(localStorage.getItem(key) || "[]");
+    var container = document.getElementById("recent-rooms-list");
+    if (!container) return;
+    if (!rooms.length) { container.innerHTML = ""; return; }
+    container.innerHTML = rooms.map(function(r) {
+      return '<button class="recent-chip" onclick="selectRecentRoom('' + escHtml(r) + '')"># ' + escHtml(r) + '</button>';
+    }).join("");
+  }
+
+  window.selectRecentRoom = function(room) {
+    document.getElementById("room-input").value = room;
+    checkRoomPass();
+  };
+
   function proceedAfterBanCheck(user) {
     // Se já está no chat, não redireciona — apenas atualiza dados
     var alreadyInChat = document.getElementById("chat-app").style.display === "flex";
@@ -1018,6 +1152,14 @@ function buildMessageRow(msg) {
       document.getElementById("greeting-email").textContent = user.email;
       initEmojiAvPicker();
       loadEmojiAv(user.uid);
+      renderRecentRooms();
+      // Preenche automaticamente a última sala usada
+      var key = "recent_rooms_" + user.uid;
+      var rooms = JSON.parse(localStorage.getItem(key) || "[]");
+      if (rooms.length) {
+        document.getElementById("room-input").value = rooms[0];
+        checkRoomPass();
+      }
     }
     db.ref("users/" + user.uid).update({
       name: user.displayName || user.email.split("@")[0],
@@ -1121,6 +1263,9 @@ async function checkRoomPass() {
       chip.textContent=initials(myName);
     }
     document.getElementById("my-chip-name").textContent = myName;
+
+    // Salva última sala e atualiza histórico recente
+    saveRecentRoom(room);
 
     setupPresence();
     listenMessagesPaged();
@@ -1517,6 +1662,7 @@ function snapshotToSortedArray(snap) {
 
   var lastMsgTime = 0;
   var msgCount = 0;
+  var newMsgsBelowCount = 0;
 
   function sendMessage() {
   var input = document.getElementById("msg-input");
@@ -1730,7 +1876,27 @@ function addStrike() {
       requestAnimationFrame(function() {
         container.scrollTop = container.scrollHeight;
       });
+      newMsgsBelowCount = 0;
+      updateNewMsgsBtn();
     }
+  }
+
+  function updateNewMsgsBtn() {
+    var btn = document.getElementById("new-msgs-btn");
+    if (!btn) return;
+    if (newMsgsBelowCount > 0) {
+      btn.style.display = "block";
+      btn.textContent = "↓ " + newMsgsBelowCount + " nova" + (newMsgsBelowCount > 1 ? "s mensagens" : " mensagem");
+    } else {
+      btn.style.display = "none";
+    }
+  }
+
+  function jumpToBottom() {
+    var container = document.getElementById("messages");
+    if (container) container.scrollTop = container.scrollHeight;
+    newMsgsBelowCount = 0;
+    updateNewMsgsBtn();
   }
 
   document.addEventListener("DOMContentLoaded", function() { 
@@ -1746,6 +1912,11 @@ function addStrike() {
       if (!isTyping) { isTyping=true; setTypingStatus(true); }
       clearTimeout(typingTimeout);
       typingTimeout=setTimeout(function(){ isTyping=false; setTypingStatus(false); },2000);
+      handleMentionInput(input);
+    });
+    input.addEventListener("keydown", function(e) {
+      // Fecha mention list no Escape
+      if (e.key === "Escape") closeMentionList();
     });
     input.addEventListener("keydown", function(e) {
       if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) sendMessage(); }
