@@ -222,6 +222,10 @@
     .reply-bar .reply-txt { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px; }
     .reply-btn { background:none; border:none; cursor:pointer; font-size:13px; padding:2px 5px; border-radius:6px; color:var(--muted); transition:background .15s,color .15s; }
     .reply-btn:hover { background:var(--surface2); color:var(--text); }
+    /* ── Read receipts ── */
+    .msg-tick { font-size:11px; color:var(--muted); margin-left:3px; transition:color .3s; }
+    .msg-tick.sent     { color:var(--muted); }
+    .msg-tick.read     { color:#60c0f8; }
     /* ── Menção @nome (Feature 6) ── */
     #mention-list { display:none; position:absolute; bottom:100%; left:0; right:0; background:var(--surface); border:1px solid var(--border); border-radius:12px 12px 0 0; overflow:hidden; z-index:30; box-shadow:0 -4px 20px #0003; max-height:180px; overflow-y:auto; }
     .mention-item { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; transition:background .15s; font-size:13.5px; }
@@ -737,6 +741,7 @@ function buildMessageRow(msg) {
   row.id = "row-" + msg.id;
   row.setAttribute("data-msg-id", msg.id);
   row.setAttribute("data-user-id", msg.userId);
+  row.setAttribute("data-ts", msg.ts || "0");
 
   var avHtml =
     '<div class="avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + avContent + '</div>';
@@ -773,7 +778,7 @@ function buildMessageRow(msg) {
         '<div class="msg-name" style="color:' + color + '">' + escHtml(msg.name) + '</div>' +
         '<div class="bubble mine" onclick="openEmojiPicker(event,\'' + msg.id + '\')">' + bubbleContent + '</div>' +
         reactionsHtml +
-        '<div class="msg-time">' + fmtTime(msg.ts) + '</div>' +
+        '<div class="msg-time">' + fmtTime(msg.ts) + '<span class="msg-tick sent" id="tick-' + msg.id + '">✓</span></div>' +
       '</div>' +
       emojiPickerHtml;
   } else {
@@ -959,7 +964,13 @@ function buildMessageRow(msg) {
   }
 
   document.addEventListener("visibilitychange", function() {
-    if (!document.hidden) resetUnread();
+    if (!document.hidden) {
+      resetUnread();
+      // Atualiza timestamp de leitura ao voltar para o app
+      if (myRoom && myId) {
+        db.ref("read_receipts/"+myRoom+"/"+myId).set({ ts: Date.now(), name: myName });
+      }
+    }
   });
   var swRegistration = null;
 
@@ -1280,6 +1291,7 @@ async function checkRoomPass() {
     listenBanStatus();
     attachMessagesScroll();
     listenRoomState();
+    listenReadReceipts();
   }
 
   function listenRoomState() {
@@ -1354,6 +1366,7 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
+    if (readReceiptsRef) { readReceiptsRef.off(); readReceiptsRef = null; }
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1372,11 +1385,54 @@ async function checkRoomPass() {
   }
 
   var connectedRef = null;
+  var readReceiptsRef = null;
+
+  function listenReadReceipts() {
+    if (readReceiptsRef) { readReceiptsRef.off(); readReceiptsRef = null; }
+    readReceiptsRef = db.ref("read_receipts/" + myRoom);
+    readReceiptsRef.on("value", function(snap) {
+      if (!snap.exists()) return;
+      var receipts = snap.val();
+
+      // Pega o timestamp mais antigo de leitura entre todos (exceto eu)
+      var othersTs = Object.keys(receipts)
+        .filter(function(uid) { return uid !== myId; })
+        .map(function(uid) { return receipts[uid].ts || 0; });
+
+      if (!othersTs.length) return;
+
+      // A mensagem mais recente que todos viram = o menor timestamp entre os outros
+      var minReadTs = Math.min.apply(null, othersTs);
+
+      // Atualiza os ticks das minhas mensagens
+      document.querySelectorAll(".msg-row.own").forEach(function(row) {
+        var msgId = row.getAttribute("data-msg-id");
+        var tick = document.getElementById("tick-" + msgId);
+        if (!tick) return;
+
+        // Pega o timestamp da mensagem via data attribute
+        var msgTs = parseInt(row.getAttribute("data-ts") || "0");
+        if (!msgTs) return;
+
+        if (msgTs <= minReadTs) {
+          tick.textContent = "✓✓";
+          tick.className = "msg-tick read";
+        } else {
+          tick.textContent = "✓";
+          tick.className = "msg-tick sent";
+        }
+      });
+    });
+  }
 
   function setupPresence() {
     presenceRef = db.ref("presence/"+myRoom+"/"+myId);
     presenceRef.onDisconnect().remove();
     presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
+
+    // Grava timestamp de leitura para outros usuários verem os ticks
+    db.ref("read_receipts/"+myRoom+"/"+myId).set({ ts: Date.now(), name: myName });
+    db.ref("read_receipts/"+myRoom+"/"+myId).onDisconnect().remove();
 
     // Restaura presença automaticamente ao reconectar (tela apagada, app em bg, etc)
     if (connectedRef) connectedRef.off();
