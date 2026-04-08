@@ -1293,6 +1293,8 @@ async function checkRoomPass() {
     attachMessagesScroll();
     listenRoomState();
     startSeenPoll();
+    // Grava seen imediatamente ao entrar na sala
+    db.ref("seen/"+myRoom+"/"+myId).set({ ts: Date.now() });
   }
 
   function listenRoomState() {
@@ -1416,7 +1418,7 @@ async function checkRoomPass() {
     stopSeenPoll();
     seenMaxTs = 0;
     pollSeen();
-    seenPoll = setInterval(pollSeen, 4000);
+    seenPoll = setInterval(pollSeen, 2000);
   }
 
   function stopSeenPoll() {
