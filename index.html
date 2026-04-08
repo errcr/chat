@@ -511,7 +511,7 @@
     list.innerHTML = members.map(function(m) {
       var color = colorFor(m.name);
       var av = m.emoji || initials(m.name);
-      return '<div class="mention-item" onmousedown="event.preventDefault();insertMention('' + escHtml(m.name) + '')">' +
+      return '<div class="mention-item" onmousedown="event.preventDefault();insertMention(\'' + escHtml(m.name) + '\')">' +
         '<div class="av" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + '">' + av + '</div>' +
         '<span>' + escHtml(m.name) + '</span>' +
         '</div>';
