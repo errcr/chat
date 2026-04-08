@@ -639,6 +639,11 @@ function renderSingleMessage(msg, shouldNotify) {
   container.appendChild(row);
   rebuildGroupTails();
 
+  // Aplica tick correto na mensagem recém renderizada
+  if (msg.userId === myId && globalMaxRead) {
+    applyTicks(globalMaxRead);
+  }
+
   // Conta mensagens fora do viewport para o botão flutuante
   var nearBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 140;
   if (!nearBottom && shouldNotify && msg.userId !== myId) {
@@ -1236,6 +1241,8 @@ async function checkRoomPass() {
 
   var myRoom="", myId="", myName="";
   var presenceRef=null, presenceListenerRef=null, msgListenerRef=null, typingListenerRef=null;
+  var globalMaxRead = 0;
+  var tickListeners = {};
   var roomSettingsListenerRef = null;
   var typingTimeout=null, isTyping=false, renderedIds={}, lastUserId=null;
 
@@ -1369,6 +1376,7 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
+    detachTickListeners();
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1393,44 +1401,50 @@ async function checkRoomPass() {
     // Chamado sempre que o presence muda (já está sendo escutado em setupPresence)
   }
 
-  function updateTicksFromPresence(presenceVal) {
-    if (!presenceVal || !myId) return;
-
-    var othersTs = Object.keys(presenceVal)
-      .filter(function(uid) { return uid !== myId; })
-      .map(function(uid) { return presenceVal[uid].lastRead || 0; });
-
-    console.log("[tick] presence keys:", Object.keys(presenceVal));
-    console.log("[tick] othersTs:", othersTs);
-    console.log("[tick] myId:", myId);
-
-    if (!othersTs.length) { console.log("[tick] sem outros membros"); return; }
-
-    var maxReadTs = Math.max.apply(null, othersTs);
-    console.log("[tick] maxReadTs:", maxReadTs);
-    if (!maxReadTs) { console.log("[tick] maxReadTs zero"); return; }
-
-    var rows = document.querySelectorAll(".msg-row.own");
-    console.log("[tick] rows próprias:", rows.length);
-
-    rows.forEach(function(row) {
-      var msgId = row.getAttribute("data-msg-id");
-      var tick = document.getElementById("tick-" + msgId);
+  // ── Read receipts: listener dedicado por membro ──
+  function applyTicks(maxReadTs) {
+    if (!maxReadTs) return;
+    document.querySelectorAll(".msg-row.own").forEach(function(row) {
+      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
+      if (!tick) return;
       var msgTs = parseInt(row.getAttribute("data-ts") || "0");
-      console.log("[tick] msg", msgId, "ts:", msgTs, "tick el:", !!tick);
-      if (!tick || !msgTs) return;
-
+      if (!msgTs) return;
       if (msgTs <= maxReadTs) {
         tick.textContent = "✓✓";
-        tick.className = "msg-tick read";
-        tick.style.color = "#60c0f8";
-        console.log("[tick] -> ✓✓ azul");
+        tick.style.cssText = "color:#60c0f8!important;font-size:11px;margin-left:3px";
       } else {
         tick.textContent = "✓";
-        tick.className = "msg-tick sent";
-        tick.style.color = "";
-        console.log("[tick] -> ✓ cinza");
+        tick.style.cssText = "color:var(--muted);font-size:11px;margin-left:3px";
       }
+    });
+  }
+
+  function attachTickListener(uid) {
+    if (tickListeners[uid]) return; // já escutando
+    var ref = db.ref("presence/" + myRoom + "/" + uid + "/lastRead");
+    ref.on("value", function(snap) {
+      var ts = snap.val() || 0;
+      if (ts > globalMaxRead) {
+        globalMaxRead = ts;
+        applyTicks(globalMaxRead);
+      }
+    });
+    tickListeners[uid] = ref;
+  }
+
+  function detachTickListeners() {
+    Object.keys(tickListeners).forEach(function(uid) {
+      tickListeners[uid].off();
+    });
+    tickListeners = {};
+    globalMaxRead = 0;
+  }
+
+  function updateTicksFromPresence(presenceVal) {
+    if (!presenceVal || !myId) return;
+    // Attach individual listeners for each other member
+    Object.keys(presenceVal).forEach(function(uid) {
+      if (uid !== myId) attachTickListener(uid);
     });
   }
 
