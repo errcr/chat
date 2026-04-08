@@ -1396,30 +1396,40 @@ async function checkRoomPass() {
   function updateTicksFromPresence(presenceVal) {
     if (!presenceVal || !myId) return;
 
-    // Pega o maior lastRead entre todos os outros membros online
     var othersTs = Object.keys(presenceVal)
       .filter(function(uid) { return uid !== myId; })
       .map(function(uid) { return presenceVal[uid].lastRead || 0; });
 
-    if (!othersTs.length) return;
+    console.log("[tick] presence keys:", Object.keys(presenceVal));
+    console.log("[tick] othersTs:", othersTs);
+    console.log("[tick] myId:", myId);
+
+    if (!othersTs.length) { console.log("[tick] sem outros membros"); return; }
 
     var maxReadTs = Math.max.apply(null, othersTs);
-    if (!maxReadTs) return;
+    console.log("[tick] maxReadTs:", maxReadTs);
+    if (!maxReadTs) { console.log("[tick] maxReadTs zero"); return; }
 
-    document.querySelectorAll(".msg-row.own").forEach(function(row) {
-      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
-      if (!tick) return;
+    var rows = document.querySelectorAll(".msg-row.own");
+    console.log("[tick] rows próprias:", rows.length);
+
+    rows.forEach(function(row) {
+      var msgId = row.getAttribute("data-msg-id");
+      var tick = document.getElementById("tick-" + msgId);
       var msgTs = parseInt(row.getAttribute("data-ts") || "0");
-      if (!msgTs) return;
+      console.log("[tick] msg", msgId, "ts:", msgTs, "tick el:", !!tick);
+      if (!tick || !msgTs) return;
 
       if (msgTs <= maxReadTs) {
         tick.textContent = "✓✓";
         tick.className = "msg-tick read";
         tick.style.color = "#60c0f8";
+        console.log("[tick] -> ✓✓ azul");
       } else {
         tick.textContent = "✓";
         tick.className = "msg-tick sent";
         tick.style.color = "";
+        console.log("[tick] -> ✓ cinza");
       }
     });
   }
