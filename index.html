@@ -1133,9 +1133,15 @@ function buildMessageRow(msg) {
     var container = document.getElementById("recent-rooms-list");
     if (!container) return;
     if (!rooms.length) { container.innerHTML = ""; return; }
-    container.innerHTML = rooms.map(function(r) {
-      return '<button class="recent-chip" onclick="selectRecentRoom('' + escHtml(r) + '')"># ' + escHtml(r) + '</button>';
-    }).join("");
+    // Build chips safely without inline onclick string concatenation
+    container.innerHTML = "";
+    rooms.forEach(function(r) {
+      var btn = document.createElement("button");
+      btn.className = "recent-chip";
+      btn.textContent = "# " + r;
+      btn.addEventListener("click", function() { selectRecentRoom(r); });
+      container.appendChild(btn);
+    });
   }
 
   window.selectRecentRoom = function(room) {
