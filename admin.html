@@ -826,7 +826,9 @@ function listenPresence() {
         if (!info || !info.name) return;
 
         if (!usersFromPresence[uid]) {
-          usersFromPresence[uid] = { name: info.name, rooms: [] };
+          usersFromPresence[uid] = { name: info.name, emoji: info.emoji || "", rooms: [] };
+        } else if (info.emoji && !usersFromPresence[uid].emoji) {
+          usersFromPresence[uid].emoji = info.emoji;
         }
 
         if (usersFromPresence[uid].rooms.indexOf(room) === -1) {
