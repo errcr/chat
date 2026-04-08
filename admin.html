@@ -765,7 +765,9 @@
   });
 
   // ── Tabs ──
+  var activeTab = "users";
   window.switchTab = function(tab) {
+    activeTab = tab;
     ["users","messages","online"].forEach(function(t) {
       document.getElementById("pane-" + t).style.display = t === tab ? "block" : "none";
       document.getElementById("tab-"  + t).classList.toggle("active", t === tab);
@@ -813,10 +815,13 @@
     });
   }
 
-  var presenceRealtimeBound = false;
+  var presenceListenerActive = false;
 
 function listenPresence() {
-  function rebuildPresence(snap) {
+  if (presenceListenerActive) return;
+  presenceListenerActive = true;
+
+  db.ref("presence").on("value", function(snap) {
     presenceData = snap.exists() ? snap.val() : {};
     usersFromPresence = {};
 
@@ -841,14 +846,7 @@ function listenPresence() {
 
     renderOnlineTab();
     refreshUsersTable();
-  }
-
-  if (!presenceRealtimeBound) {
-    presenceRealtimeBound = true;
-    db.ref("presence").on("value", rebuildPresence);
-  }
-
-  db.ref("presence").once("value", rebuildPresence);
+  });
 }
 
   var roomsRealtimeBound = false;
@@ -1491,6 +1489,7 @@ function refreshUsersTable() {
     };
 
   function renderOnlineTab() {
+    if (activeTab !== "online") return;
     var grid = document.getElementById("online-grid");
     if (!grid) return;
     var keys = Object.keys(usersFromPresence);
