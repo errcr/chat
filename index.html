@@ -689,7 +689,7 @@ function attachMessagesScroll() {
       newMsgsBelowCount = 0;
       updateNewMsgsBtn();
       if (myRoom && myId) {
-        db.ref("read_receipts/"+myRoom+"/"+myId+"/ts").set(Date.now());
+        db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
       }
     }
   });
@@ -969,9 +969,9 @@ function buildMessageRow(msg) {
   document.addEventListener("visibilitychange", function() {
     if (!document.hidden) {
       resetUnread();
-      // Atualiza timestamp de leitura ao voltar para o app
+      // Atualiza lastRead ao voltar para o app
       if (myRoom && myId) {
-        db.ref("read_receipts/"+myRoom+"/"+myId).set({ ts: Date.now(), name: myName });
+        db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
       }
     }
   });
@@ -1369,7 +1369,6 @@ async function checkRoomPass() {
       roomSettingsListenerRef = null;
     }
     if (connectedRef) { connectedRef.off(); connectedRef = null; }
-    if (readReceiptsRef) { readReceiptsRef.off(); readReceiptsRef = null; }
     if (presenceRef) { presenceRef.remove(); presenceRef = null; }
     if (presenceListenerRef) { presenceListenerRef.off(); presenceListenerRef = null; }
     if (typingListenerRef) { typingListenerRef.off(); typingListenerRef = null; }
@@ -1388,43 +1387,38 @@ async function checkRoomPass() {
   }
 
   var connectedRef = null;
-  var readReceiptsRef = null;
-
   function listenReadReceipts() {
-    if (readReceiptsRef) { readReceiptsRef.off(); readReceiptsRef = null; }
-    readReceiptsRef = db.ref("read_receipts/" + myRoom);
-    readReceiptsRef.on("value", function(snap) {
-      if (!snap.exists()) return;
-      var receipts = snap.val();
+    // Usa o presenceListenerRef já existente — reutiliza o mesmo nó presence
+    // presence/<room>/<uid>/lastRead = timestamp de quando o usuário leu pela última vez
+    // Chamado sempre que o presence muda (já está sendo escutado em setupPresence)
+  }
 
-      // Pega o timestamp mais antigo de leitura entre todos (exceto eu)
-      var othersTs = Object.keys(receipts)
-        .filter(function(uid) { return uid !== myId; })
-        .map(function(uid) { return receipts[uid].ts || 0; });
+  function updateTicksFromPresence(presenceVal) {
+    if (!presenceVal || !myId) return;
 
-      if (!othersTs.length) return;
+    // Pega o maior lastRead entre todos os outros membros online
+    var othersTs = Object.keys(presenceVal)
+      .filter(function(uid) { return uid !== myId; })
+      .map(function(uid) { return presenceVal[uid].lastRead || 0; });
 
-      // A mensagem mais recente que todos viram = o menor timestamp entre os outros
-      var minReadTs = Math.max.apply(null, othersTs); // ✓✓ quando pelo menos 1 viu
+    if (!othersTs.length) return;
 
-      // Atualiza os ticks das minhas mensagens
-      document.querySelectorAll(".msg-row.own").forEach(function(row) {
-        var msgId = row.getAttribute("data-msg-id");
-        var tick = document.getElementById("tick-" + msgId);
-        if (!tick) return;
+    var maxReadTs = Math.max.apply(null, othersTs);
+    if (!maxReadTs) return;
 
-        // Pega o timestamp da mensagem via data attribute
-        var msgTs = parseInt(row.getAttribute("data-ts") || "0");
-        if (!msgTs) return;
+    document.querySelectorAll(".msg-row.own").forEach(function(row) {
+      var tick = document.getElementById("tick-" + row.getAttribute("data-msg-id"));
+      if (!tick) return;
+      var msgTs = parseInt(row.getAttribute("data-ts") || "0");
+      if (!msgTs) return;
 
-        if (msgTs <= minReadTs) {
-          tick.textContent = "✓✓";
-          tick.className = "msg-tick read";
-        } else {
-          tick.textContent = "✓";
-          tick.className = "msg-tick sent";
-        }
-      });
+      if (msgTs <= maxReadTs) {
+        tick.textContent = "✓✓";
+        tick.className = "msg-tick read";
+      } else {
+        tick.textContent = "✓";
+        tick.className = "msg-tick sent";
+      }
     });
   }
 
@@ -1433,9 +1427,8 @@ async function checkRoomPass() {
     presenceRef.onDisconnect().remove();
     presenceRef.set({ name:myName, online:true, emoji:myEmoji||"" });
 
-    // Grava timestamp de leitura para outros usuários verem os ticks
-    db.ref("read_receipts/"+myRoom+"/"+myId).set({ ts: Date.now(), name: myName });
-    db.ref("read_receipts/"+myRoom+"/"+myId).onDisconnect().remove();
+    // Grava timestamp de leitura dentro do presence (mesma permissão)
+    db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
 
     // Restaura presença automaticamente ao reconectar (tela apagada, app em bg, etc)
     if (connectedRef) connectedRef.off();
@@ -1454,6 +1447,7 @@ async function checkRoomPass() {
       var count = Object.keys(val).length;
       document.getElementById("online-count").textContent = count===1?"1 online":count+" online";
       renderMembers(val);
+      updateTicksFromPresence(val);
     });
   }
 
@@ -1531,9 +1525,9 @@ function attachRealtimeNewMessages() {
     renderSingleMessage(fullMsg, true);
     scrollBottom();
 
-    // Atualiza timestamp de leitura — o usuário está vendo as mensagens chegarem
+    // Atualiza lastRead no presence — o usuário está vendo as mensagens chegarem
     if (myRoom && myId) {
-      db.ref("read_receipts/"+myRoom+"/"+myId+"/ts").set(Date.now());
+      db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
     }
   });
 
@@ -1982,7 +1976,7 @@ function addStrike() {
     newMsgsBelowCount = 0;
     updateNewMsgsBtn();
     if (myRoom && myId) {
-      db.ref("read_receipts/"+myRoom+"/"+myId+"/ts").set(Date.now());
+      db.ref("presence/"+myRoom+"/"+myId+"/lastRead").set(Date.now());
     }
   }
 
