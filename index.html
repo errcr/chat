@@ -974,15 +974,18 @@ function buildMessageRow(msg) {
 
   function logout() { auth.signOut(); }
 
+  var authInitialized = false;
+
   auth.onAuthStateChanged(function(user) {
     if (user) {
-      // Força refresh do token para garantir claims atualizadas
-      user.getIdToken(true).then(function() {
+      // Só faz checagem completa na primeira inicialização
+      // Reconexões do Firebase não devem tirar o usuário do chat
+      if (!authInitialized) {
+        authInitialized = true;
         checkBanned(user);
-      }).catch(function() {
-        checkBanned(user);
-      });
+      }
     } else {
+      authInitialized = false;
       show("auth-screen"); hide("room-screen"); hide("chat-app");
       var btn = document.getElementById("auth-btn");
       btn.disabled=false; btn.textContent=isRegisterMode?"Criar conta":"Entrar";
@@ -1007,11 +1010,15 @@ function buildMessageRow(msg) {
   }
 
   function proceedAfterBanCheck(user) {
-    hide("auth-screen"); hide("chat-app"); show("room-screen");
-    document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
-    document.getElementById("greeting-email").textContent = user.email;
-    initEmojiAvPicker();
-    loadEmojiAv(user.uid);
+    // Se já está no chat, não redireciona — apenas atualiza dados
+    var alreadyInChat = document.getElementById("chat-app").style.display === "flex";
+    if (!alreadyInChat) {
+      hide("auth-screen"); hide("chat-app"); show("room-screen");
+      document.getElementById("greeting-name").textContent  = user.displayName || "Usuário";
+      document.getElementById("greeting-email").textContent = user.email;
+      initEmojiAvPicker();
+      loadEmojiAv(user.uid);
+    }
     db.ref("users/" + user.uid).update({
       name: user.displayName || user.email.split("@")[0],
       email: user.email,
