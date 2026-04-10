@@ -1134,7 +1134,7 @@ function buildMessageRow(msg) {
     var rooms = JSON.parse(localStorage.getItem(key) || "[]");
     rooms = rooms.filter(function(r) { return r !== room; });
     rooms.unshift(room);
-    rooms = rooms.slice(0, 5);
+    rooms = rooms.slice(0, 4);
     localStorage.setItem(key, JSON.stringify(rooms));
     renderRecentRooms();
   }
