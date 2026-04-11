@@ -552,7 +552,7 @@
   }
 
   function linkifyMentions(html) {
-    // Destaca @nome nas bolhas — não captura espaços para evitar falsos positivos
+    // Destaca @nome nas bolhas — sem capturar espaços
     return html.replace(/@([A-Za-zÀ-ÿ0-9_.]+)/g, function(match) {
       return '<span class="mention-tag">' + match + '</span>';
     });
@@ -1397,6 +1397,8 @@ async function checkRoomPass() {
     hasMoreOldMessages = true;
     scrollHandlerAttached = false;
   }
+
+  var connectedRef = null;
   var seenPoll = null;
   var seenMaxTs = 0;
 
