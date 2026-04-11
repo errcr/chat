@@ -1573,9 +1573,16 @@ function attachRealtimeNewMessages() {
   // Listener de reactions separado
   db.ref("reactions/" + myRoom).on("value", function(snap) {
     var allReactions = snap.val() || {};
+    // Atualiza reactions das mensagens presentes no snap
     Object.keys(allReactions).forEach(function(msgId) {
       if (renderedIds[msgId]) {
         renderReactions(msgId, allReactions[msgId] || {});
+      }
+    });
+    // Limpa reactions de mensagens que sumiram do nó (todas removidas)
+    Object.keys(renderedIds).forEach(function(msgId) {
+      if (!allReactions[msgId]) {
+        renderReactions(msgId, {});
       }
     });
   });
