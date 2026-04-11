@@ -1719,6 +1719,13 @@ function snapshotToSortedArray(snap) {
     };
 
     if (newPass) {
+      // Verifica se o usuário tem plano Premium
+      var premiumSnap = await db.ref("premium_users/" + currentUid).once("value");
+      if (!premiumSnap.exists() || !premiumSnap.val().active) {
+        alert("🔒 Salas com senha são exclusivas para usuários Premium!\n\nClique em OK para conhecer os planos.");
+        window.open("/premium.html", "_blank");
+        return;
+      }
       payload.password = await hashPassword(newPass);
     }
 
@@ -1729,6 +1736,16 @@ function snapshotToSortedArray(snap) {
 
   // dono alterando/adicionando senha
   if (data.ownerUid === currentUid && newPass) {
+    // Verifica se a sala já é premium ou se o usuário tem plano Premium
+    var isPremiumRoom = data.premium === true;
+    if (!isPremiumRoom) {
+      var premiumUserSnap = await db.ref("premium_users/" + currentUid).once("value");
+      if (!premiumUserSnap.exists() || !premiumUserSnap.val().active) {
+        alert("🔒 Salas com senha são exclusivas para usuários Premium!\n\nClique em OK para conhecer os planos.");
+        window.open("/premium.html", "_blank");
+        return;
+      }
+    }
     await db.ref("room_settings/" + room + "/password").set(await hashPassword(newPass));
     startChat(room);
     return;
