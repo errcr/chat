@@ -1277,17 +1277,17 @@ function refreshUsersTable() {
   document.getElementById("stat-rooms").textContent = allRooms.length;
 
   try {
-    // Apaga mensagens individualmente (sem write no nível $room)
+    // Apaga mensagens uma por uma
     var msgsSnap = await db.ref("messages/" + room).once("value");
     if (msgsSnap.exists()) {
-      var deletes = {};
-      Object.keys(msgsSnap.val()).forEach(function(k) {
-        deletes["messages/" + room + "/" + k] = null;
-      });
-      await db.ref().update(deletes);
+      await Promise.all(
+        Object.keys(msgsSnap.val()).map(function(k) {
+          return db.ref("messages/" + room + "/" + k).remove();
+        })
+      );
     }
 
-    // Apaga presence uid por uid (rules não permitem apagar $room inteiro)
+    // Apaga presence uid por uid
     var presSnap = await db.ref("presence/" + room).once("value");
     if (presSnap.exists()) {
       await Promise.all(
