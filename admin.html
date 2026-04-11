@@ -644,8 +644,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script>
-  var ADMIN_EMAIL = "pericles.sql@gmail.com";
-
   firebase.initializeApp({
     apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
     authDomain: "chat-d61cc.firebaseapp.com",
@@ -739,11 +737,6 @@
     var err   = document.getElementById("error-msg");
     err.style.display = "none";
 
-    if (email !== ADMIN_EMAIL) {
-      err.textContent = "Acesso negado. Apenas administradores.";
-      err.style.display = "block"; return;
-    }
-
     btn.disabled = true;
     btn.innerHTML = '<div class="spinner"></div>';
 
@@ -764,23 +757,27 @@
   // ── Auth state ──
   auth.onAuthStateChanged(function(user) {
     document.body.style.visibility = "visible";
-    if (user && user.email === ADMIN_EMAIL) {
-      db.ref("users/" + user.uid).update({
-        name: user.displayName || user.email.split("@")[0],
-        email: user.email,
-        createdAt: Date.now()
+    if (user) {
+      db.ref("admins/" + user.uid).once("value", function(snap) {
+        if (snap.exists() && snap.val() === true) {
+          db.ref("users/" + user.uid).update({
+            name: user.displayName || user.email.split("@")[0],
+            email: user.email,
+            createdAt: Date.now()
+          });
+          document.getElementById("login-screen").style.display = "none";
+          document.getElementById("admin-panel").style.display  = "flex";
+          document.getElementById("admin-email-label").textContent = user.email;
+          initAdmin();
+        } else {
+          auth.signOut();
+          document.getElementById("login-screen").style.display = "flex";
+          document.getElementById("admin-panel").style.display  = "none";
+          var err = document.getElementById("error-msg");
+          err.textContent = "Acesso negado. Esta conta não tem permissão de administrador.";
+          err.style.display = "block";
+        }
       });
-      document.getElementById("login-screen").style.display = "none";
-      document.getElementById("admin-panel").style.display  = "flex";
-      document.getElementById("admin-email-label").textContent = user.email;
-      initAdmin();
-    } else if (user && user.email !== ADMIN_EMAIL) {
-      auth.signOut();
-      document.getElementById("login-screen").style.display = "flex";
-      document.getElementById("admin-panel").style.display  = "none";
-      var err = document.getElementById("error-msg");
-      err.textContent = "Acesso negado. Esta conta não tem permissão de administrador.";
-      err.style.display = "block";
     } else {
       document.getElementById("login-screen").style.display = "flex";
       document.getElementById("admin-panel").style.display  = "none";
