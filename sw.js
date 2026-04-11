@@ -1,4 +1,4 @@
-const CACHE_NAME = "secret-chat-de7b857a";
+const CACHE_NAME = "secret-chat-221ab149";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -72,7 +72,7 @@ self.addEventListener("fetch", function (event) {
           if (response && response.status === 200) {
             var copy = response.clone();
             caches.open(CACHE_NAME).then(function (cache) {
-              cache.put("/index.html", copy);
+              cache.put(request, copy);
             });
           }
           return response;
