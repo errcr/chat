@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secret Chat — Premium</title>
+  <meta name="robots" content="noindex"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0914;
+      --surface: #12102a;
+      --border: #1e1b3a;
+      --accent: #7c6af7;
+      --accent2: #a78bfa;
+      --accent3: #c4b5fd;
+      --text: #e8e6f4;
+      --muted: #6b6880;
+      --green: #34d399;
+      --font: 'Nunito', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* BG animado */
+    .bg-glow {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 20%, #7c6af720 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 80% 80%, #a78bfa15 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 50% 50%, #4f46e510 0%, transparent 70%);
+    }
+
+    .stars {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image:
+        radial-gradient(1px 1px at 20% 30%, #ffffff22, transparent),
+        radial-gradient(1px 1px at 50% 10%, #ffffff18, transparent),
+        radial-gradient(1px 1px at 80% 60%, #ffffff20, transparent),
+        radial-gradient(1px 1px at 10% 70%, #ffffff15, transparent),
+        radial-gradient(1px 1px at 65% 85%, #ffffff18, transparent),
+        radial-gradient(1px 1px at 35% 55%, #ffffff12, transparent),
+        radial-gradient(2px 2px at 90% 25%, #7c6af730, transparent),
+        radial-gradient(2px 2px at 15% 45%, #a78bfa25, transparent);
+    }
+
+    /* Layout */
+    .wrapper {
+      position: relative; z-index: 1;
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeUp .5s ease both;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+      padding: 10px 20px;
+      background: #7c6af712;
+      border: 1px solid #7c6af730;
+      border-radius: 40px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent3);
+      letter-spacing: .5px;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .headline {
+      font-size: clamp(32px, 8vw, 48px);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+
+    .headline .gradient {
+      background: linear-gradient(135deg, var(--accent2), #c4b5fd, #e879f9);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .sub {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.6;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+
+    /* Price card */
+    .price-card {
+      background: linear-gradient(135deg, #1a1535, #12102a);
+      border: 1px solid #7c6af740;
+      border-radius: 24px;
+      padding: 36px 32px;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+      animation: fadeUp .5s .1s ease both;
+    }
+
+    .price-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #7c6af760, transparent);
+    }
+
+    .price-card::after {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, #7c6af715, transparent 70%);
+      pointer-events: none;
+    }
+
+    .plan-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #7c6af730, #a78bfa20);
+      border: 1px solid #7c6af750;
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--accent3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 20px;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .price-currency {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--accent2);
+      margin-bottom: 6px;
+    }
+
+    .price-value {
+      font-size: 64px;
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(135deg, #fff, var(--accent3));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -2px;
+    }
+
+    .price-period {
+      font-size: 14px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-bottom: 10px;
+    }
+
+    .price-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      font-family: var(--mono);
+    }
+
+    /* Features */
+    .features {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .feature {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14.5px;
+    }
+
+    .feature-icon {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      background: #34d39920;
+      border: 1px solid #34d39940;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+
+    /* CTA */
+    .cta-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), #a78bfa, #818cf8);
+      border: none;
+      border-radius: 14px;
+      color: #fff;
+      font-family: var(--font);
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: opacity .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 8px 32px #7c6af740;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: .3px;
+    }
+
+    .cta-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #ffffff20, transparent);
+      opacity: 0;
+      transition: opacity .2s;
+    }
+
+    .cta-btn:hover { opacity: .92; transform: translateY(-2px); box-shadow: 0 12px 40px #7c6af760; }
+    .cta-btn:hover::after { opacity: 1; }
+    .cta-btn:active { transform: scale(.97); }
+
+    .cta-sub {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      margin-top: 12px;
+    }
+
+    /* FAQ */
+    .faq {
+      margin-top: 48px;
+      animation: fadeUp .5s .2s ease both;
+    }
+
+    .faq-title {
+      font-size: 13px;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 0;
+    }
+
+    .faq-item:last-child { border-bottom: none; }
+
+    .faq-q {
+      font-size: 14.5px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .faq-a {
+      font-size: 13.5px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    /* Back link */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-family: var(--mono);
+      color: var(--muted);
+      text-decoration: none;
+      margin-bottom: 32px;
+      transition: color .2s;
+    }
+    .back-link:hover { color: var(--accent2); }
+
+    /* Modal Pix */
+    .modal-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: #000a;
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      backdrop-filter: blur(8px);
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: #1a1535;
+      border: 1px solid #7c6af740;
+      border-radius: 24px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 400px;
+      animation: fadeUp .3s ease;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px; right: 16px;
+      background: none; border: none;
+      color: var(--muted); font-size: 20px;
+      cursor: pointer; line-height: 1;
+      transition: color .2s;
+    }
+    .modal-close:hover { color: var(--text); }
+
+    .modal-title {
+      font-size: 20px; font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .modal-sub {
+      font-size: 13px; color: var(--muted);
+      font-family: var(--mono);
+      margin-bottom: 24px;
+    }
+
+    .pix-key-box {
+      background: #0a0914;
+      border: 1.5px solid #7c6af740;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .pix-key {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--accent3);
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background: #7c6af720;
+      border: 1px solid #7c6af740;
+      border-radius: 8px;
+      color: var(--accent2);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: background .2s;
+      flex-shrink: 0;
+    }
+    .copy-btn:hover { background: #7c6af740; }
+
+    .modal-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .modal-step {
+      display: flex;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--muted);
+      align-items: flex-start;
+    }
+
+    .step-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #7c6af720;
+      border: 1px solid #7c6af740;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800;
+      color: var(--accent2);
+      flex-shrink: 0;
+      font-family: var(--mono);
+    }
+
+    .modal-note {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 32px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 10px 20px;
+      font-size: 13px;
+      font-family: var(--mono);
+      color: var(--green);
+      box-shadow: 0 4px 20px #0006;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity .2s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 480px) {
+      .price-value { font-size: 52px; }
+      .price-card { padding: 28px 20px; }
+      .modal { padding: 28px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-glow"></div>
+<div class="stars"></div>
+
+<div class="wrapper">
+
+  <a href="/" class="back-link">← Voltar ao chat</a>
+
+  <div class="header">
+    <div class="logo-wrap">
+      <div class="logo-icon">💬</div>
+      Secret Chat
+    </div>
+    <h1 class="headline">Sua sala,<br><span class="gradient">suas regras.</span></h1>
+    <p class="sub">Crie salas privadas protegidas por senha e controle quem pode entrar.</p>
+  </div>
+
+  <div class="price-card">
+    <div class="plan-badge">✨ Plano Premium</div>
+
+    <div class="price-row">
+      <span class="price-currency">R$</span>
+      <span class="price-value">10</span>
+    </div>
+    <div class="price-period">por mês / por sala</div>
+    <div class="price-desc">Pagamento via Pix • Ativação manual em até 24h</div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🔐</div>
+        <span>Sala privada com senha exclusiva</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">👑</div>
+        <span>Você é o dono — gerencia quem entra</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🖼️</div>
+        <span>Envio de imagens de até 20MB</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <span>Chat em tempo real, sempre online</span>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📱</div>
+        <span>Funciona no celular como app (PWA)</span>
+      </div>
+    </div>
+
+    <button class="cta-btn" onclick="openModal()">Quero minha sala Premium →</button>
+    <div class="cta-sub">Pagamento seguro via Pix • Sem mensalidade automática</div>
+  </div>
+
+  <div class="faq">
+    <div class="faq-title">Dúvidas frequentes</div>
+
+    <div class="faq-item">
+      <div class="faq-q">Como funciona a ativação?</div>
+      <div class="faq-a">Após o pagamento via Pix, você envia o comprovante. A senha da sua sala é configurada manualmente em até 24 horas.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">Posso mudar a senha da sala depois?</div>
+      <div class="faq-a">Sim! Como dono da sala, você pode alterar a senha quando quiser diretamente pelo chat, em "Gerenciar senha da sala".</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">É renovado automaticamente?</div>
+      <div class="faq-a">Não. Você paga manualmente cada mês, sem cobranças automáticas ou surpresas no cartão.</div>
+    </div>
+
+    <div class="faq-item">
+      <div class="faq-q">Posso ter mais de uma sala?</div>
+      <div class="faq-a">Sim! Cada sala é R$10/mês. Você pode ter quantas salas quiser.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Modal Pix -->
+<div class="modal-backdrop" id="modal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title">Pagar via Pix 💜</div>
+    <div class="modal-sub">R$10,00 · Plano Premium · 1 sala</div>
+
+    <div class="pix-key-box">
+      <span class="pix-key" id="pix-key-text">pericles.sql@gmail.com</span>
+      <button class="copy-btn" onclick="copyPix()">Copiar</button>
+    </div>
+
+    <div class="modal-steps">
+      <div class="modal-step">
+        <div class="step-num">1</div>
+        <span>Copie a chave Pix acima e faça o pagamento de <strong style="color:var(--text)">R$10,00</strong> no seu banco.</span>
+      </div>
+      <div class="modal-step">
+        <div class="step-num">2</div>
+        <span>No campo de descrição do Pix, coloque o <strong style="color:var(--text)">nome da sala</strong> que deseja criar.</span>
+      </div>
+      <div class="modal-step">
+        <div class="step-num">3</div>
+        <span>Aguarde até <strong style="color:var(--text)">24 horas</strong>. Sua sala será ativada com senha e você receberá o acesso.</span>
+      </div>
+    </div>
+
+    <div class="modal-note">Dúvidas? Entre no chat e envie uma mensagem<br>na sala <strong style="color:var(--accent3)">#geral</strong> ou <strong style="color:var(--accent3)">#suporte</strong>.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✓ Chave Pix copiada!</div>
+
+<script>
+  function openModal() {
+    document.getElementById("modal").classList.add("open");
+  }
+  function closeModal() {
+    document.getElementById("modal").classList.remove("open");
+  }
+  function closeModalOutside(e) {
+    if (e.target === document.getElementById("modal")) closeModal();
+  }
+  function copyPix() {
+    var key = document.getElementById("pix-key-text").textContent;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(key).then(showToast);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = key;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      showToast();
+    }
+  }
+  function showToast() {
+    var t = document.getElementById("toast");
+    t.classList.add("show");
+    setTimeout(function() { t.classList.remove("show"); }, 2000);
+  }
+</script>
+</body>
+</html>
