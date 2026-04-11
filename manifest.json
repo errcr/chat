@@ -3,6 +3,7 @@
   "short_name": "Secret Chat",
   "description": "Chat em tempo real",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f4f3ff",
   "theme_color": "#7c6af7",
