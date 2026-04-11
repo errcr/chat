@@ -415,11 +415,102 @@
     .stats-summary-card .sub { font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px; }
 
     @media (max-width: 640px) {
-      .rooms-layout { grid-template-columns: 1fr; }
-      .stats-row { grid-template-columns: 1fr 1fr; }
-      .topbar { padding: 12px 16px; }
-      .content { padding: 16px; }
-      .tabs { padding: 12px 16px 0; overflow-x: auto; }
+      /* Topbar mobile */
+      .topbar { padding: 10px 14px; gap: 8px; }
+      .topbar h1 { font-size: 13px; }
+      .admin-info { display: none; }
+      .logout-btn { padding: 5px 10px; font-size: 11px; }
+
+      /* Tabs mobile — scroll horizontal, ícone apenas */
+      .tabs {
+        padding: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        display: flex;
+        gap: 0;
+      }
+      .tabs::-webkit-scrollbar { display: none; }
+      .tab {
+        flex: 1;
+        min-width: 72px;
+        padding: 12px 8px;
+        border-radius: 0;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-size: 11px;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .tab.active {
+        background: transparent;
+        border-bottom-color: var(--accent);
+        color: var(--accent2);
+      }
+
+      /* Content */
+      .content { padding: 14px; }
+      .section-title { font-size: 16px; }
+      .section-sub { font-size: 12px; margin-bottom: 14px; }
+
+      /* Stats cards */
+      .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+      .stat-card { padding: 12px 14px; border-radius: 12px; }
+      .stat-card .stat-value { font-size: 22px; }
+
+      /* Tabela → cards mobile */
+      .table-wrap { border-radius: 12px; }
+      table thead { display: none; }
+      table, tbody, tr, td { display: block; width: 100%; }
+      tbody tr {
+        border-bottom: 1px solid var(--border);
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      tbody tr:last-child { border-bottom: none; }
+      tbody td { padding: 0; font-size: 13px; }
+      tbody td:empty { display: none; }
+
+      /* Card de usuário mobile */
+      .user-card-mobile {
+        display: flex; align-items: center; gap: 10px; width: 100%;
+      }
+      .user-card-mobile .user-avatar { width: 38px; height: 38px; flex-shrink: 0; }
+      .user-card-info { flex: 1; min-width: 0; }
+      .user-card-info .user-name { font-size: 14px; font-weight: 800; }
+      .user-card-info .user-email { font-size: 11px; color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .user-card-meta {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      }
+
+      /* Rooms layout mobile */
+      .rooms-layout { grid-template-columns: 1fr; gap: 12px; }
+      .rooms-list {
+        position: static;
+        max-height: 180px;
+        border-radius: 12px;
+      }
+      .messages-list { max-height: 380px; }
+
+      /* Online grid mobile */
+      .online-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .online-card { padding: 12px; border-radius: 12px; }
+      .online-card .av { width: 36px; height: 36px; }
+      .online-card .info .name { font-size: 13px; }
+
+      /* Stats tab */
+      .stats-summary-card { padding: 12px; }
+      .stats-summary-card .value { font-size: 18px; }
+
+      /* Modal mobile */
+      .modal-box, .confirm-box { margin: 16px; width: calc(100% - 32px); max-width: none; }
+
+      /* Action buttons inline */
+      .action-btn { padding: 5px 10px; font-size: 11px; }
     }
 
     /* ── Toast ── */
@@ -1117,18 +1208,23 @@ function refreshUsersTable() {
       ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
       : escHtml(info.name);
 
-    return '<tr style="' + (isBanned ? 'opacity:.5' : '') + '">' +
-      '<td><div class="user-row-name">' +
-        '<div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + ';font-size:' + (info.emoji ? '18px' : '12px') + '">' + (info.emoji || initials(info.name)) + '</div>' +
-        '<div>' +
-          '<div class="user-name">' + nameDisplay + '</div>' +
-          '<div class="user-email">' + escHtml(info.email || "") + '</div>' +
+    return '<tr style="' + (isBanned ? 'opacity:.55' : '') + '">' +
+      '<td colspan="5">' +
+        '<div class="user-card-mobile">' +
+          '<div class="user-avatar" style="background:' + color + '22;border:2px solid ' + color + '44;color:' + color + ';font-size:' + (info.emoji ? '18px' : '12px') + '">' + (info.emoji || initials(info.name)) + '</div>' +
+          '<div class="user-card-info">' +
+            '<div class="user-name">' + nameDisplay + '</div>' +
+            '<div class="user-email">' + escHtml(info.email || "") + '</div>' +
+          '</div>' +
+          banBtn +
         '</div>' +
-      '</div></td>' +
-      '<td>' + statusHtml + '</td>' +
-      '<td>' + roomHtml + '</td>' +
-      '<td>' + countHtml + '</td>' +
-      '<td>' + banBtn + '</td>' +
+        '<div class="user-card-meta" style="margin-top:6px;padding-left:48px">' +
+          statusHtml +
+          (rooms.length ? '<span style="color:var(--muted);font-size:11px;font-family:var(--mono)">·</span>' + roomHtml : '') +
+          '<span style="color:var(--muted);font-size:11px;font-family:var(--mono)">·</span>' +
+          '<span style="font-family:var(--mono);font-size:12px;color:var(--accent2)">' + info.msgCount + ' msgs</span>' +
+        '</div>' +
+      '</td>' +
     '</tr>';
   }).join("");
 }
