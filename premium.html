@@ -485,7 +485,7 @@
       <span class="price-value">10</span>
     </div>
     <div class="price-period">por mês / por sala</div>
-    <div class="price-desc">Pagamento via Pix • Ativação manual em até 24h</div>
+    <div class="price-desc">Pix, cartão ou boleto • Ativação automática</div>
 
     <div class="features">
       <div class="feature">
@@ -511,7 +511,7 @@
     </div>
 
     <button class="cta-btn" onclick="openModal()">Quero minha sala Premium →</button>
-    <div class="cta-sub">Pagamento seguro via Pix • Sem mensalidade automática</div>
+    <div class="cta-sub">Pagamento seguro via Mercado Pago • Ativação automática</div>
   </div>
 
   <div class="faq">
@@ -519,7 +519,7 @@
 
     <div class="faq-item">
       <div class="faq-q">Como funciona a ativação?</div>
-      <div class="faq-a">Após o pagamento via Pix, você envia o comprovante. A senha da sua sala é configurada manualmente em até 24 horas.</div>
+      <div class="faq-a">Após o pagamento aprovado pelo Mercado Pago, sua sala é ativada automaticamente em instantes. Você receberá a senha por e-mail.</div>
     </div>
 
     <div class="faq-item">
@@ -540,42 +540,58 @@
 
 </div>
 
-<!-- Modal Pix -->
+<!-- Modal Checkout -->
 <div class="modal-backdrop" id="modal" onclick="closeModalOutside(event)">
   <div class="modal">
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <div class="modal-title">Pagar via Pix 💜</div>
-    <div class="modal-sub">R$10,00 · Plano Premium · 1 sala</div>
+    <div class="modal-title">Criar sala Premium 💜</div>
+    <div class="modal-sub">R$10,00 · por mês · ativação automática</div>
 
-    <div class="pix-key-box">
-      <span class="pix-key" id="pix-key-text">pericles.sql@gmail.com</span>
-      <button class="copy-btn" onclick="copyPix()">Copiar</button>
-    </div>
-
-    <div class="modal-steps">
-      <div class="modal-step">
-        <div class="step-num">1</div>
-        <span>Copie a chave Pix acima e faça o pagamento de <strong style="color:var(--text)">R$10,00</strong> no seu banco.</span>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px">
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Nome da sala</div>
+        <input id="room-name-input" type="text" placeholder="ex: minha-sala"
+          style="width:100%;padding:12px 14px;background:#0a0914;border:1.5px solid #7c6af740;border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s"
+          onfocus="this.style.borderColor='#7c6af7'" onblur="this.style.borderColor='#7c6af740'"/>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:4px">Apenas letras, números e hífen. Ex: grupo-amigos</div>
       </div>
-      <div class="modal-step">
-        <div class="step-num">2</div>
-        <span>No campo de descrição do Pix, coloque o <strong style="color:var(--text)">nome da sala</strong> que deseja criar.</span>
-      </div>
-      <div class="modal-step">
-        <div class="step-num">3</div>
-        <span>Aguarde até <strong style="color:var(--text)">24 horas</strong>. Sua sala será ativada com senha e você receberá o acesso.</span>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Seu e-mail</div>
+        <input id="user-email-input" type="email" placeholder="seu@email.com"
+          style="width:100%;padding:12px 14px;background:#0a0914;border:1.5px solid #7c6af740;border-radius:10px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:border-color .2s"
+          onfocus="this.style.borderColor='#7c6af7'" onblur="this.style.borderColor='#7c6af740'"/>
       </div>
     </div>
 
-    <div class="modal-note">Dúvidas? Entre no chat e envie uma mensagem<br>na sala <strong style="color:var(--accent3)">#geral</strong> ou <strong style="color:var(--accent3)">#suporte</strong>.</div>
+    <div id="modal-error" style="display:none;background:#f8717118;border:1px solid #f8717140;border-radius:8px;padding:10px 12px;font-size:13px;color:#fca5a5;margin-bottom:12px;font-family:var(--mono)"></div>
+
+    <button class="cta-btn" id="checkout-btn" onclick="startCheckout()">
+      Ir para pagamento →
+    </button>
+
+    <div class="modal-note" style="margin-top:12px">
+      Pagamento seguro via Mercado Pago · Pix, cartão ou boleto<br>
+      Sua sala é ativada automaticamente após a confirmação.
+    </div>
   </div>
 </div>
 
-<div class="toast" id="toast">✓ Chave Pix copiada!</div>
+<div class="toast" id="toast"></div>
 
 <script>
+  var WORKER_URL = "https://secret-chat-payment.pericles-sql.workers.dev";
+
+  var params = new URLSearchParams(window.location.search);
+  var status = params.get("status");
+  if (status === "success") showToast("✅ Pagamento aprovado! Sua sala será ativada em instantes.", 5000);
+  if (status === "failure") showToast("❌ Pagamento não aprovado. Tente novamente.", 4000);
+  if (status === "pending") showToast("⏳ Pagamento pendente. Aguarde a confirmação.", 4000);
+
   function openModal() {
     document.getElementById("modal").classList.add("open");
+    document.getElementById("modal-error").style.display = "none";
+    document.getElementById("room-name-input").value = "";
+    document.getElementById("user-email-input").value = "";
   }
   function closeModal() {
     document.getElementById("modal").classList.remove("open");
@@ -583,26 +599,53 @@
   function closeModalOutside(e) {
     if (e.target === document.getElementById("modal")) closeModal();
   }
-  function copyPix() {
-    var key = document.getElementById("pix-key-text").textContent;
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(key).then(showToast);
-    } else {
-      var ta = document.createElement("textarea");
-      ta.value = key;
-      ta.style.position = "fixed"; ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.focus(); ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      showToast();
+
+  async function startCheckout() {
+    var roomName = document.getElementById("room-name-input").value.trim().toLowerCase().replace(/\s+/g, "-");
+    var userEmail = document.getElementById("user-email-input").value.trim();
+    var errEl = document.getElementById("modal-error");
+    var btn = document.getElementById("checkout-btn");
+
+    errEl.style.display = "none";
+
+    if (!roomName) { errEl.textContent = "Digite o nome da sala."; errEl.style.display = "block"; return; }
+    if (!/^[a-z0-9-]+$/.test(roomName)) { errEl.textContent = "Use apenas letras, números e hífen."; errEl.style.display = "block"; return; }
+    if (!userEmail || !userEmail.includes("@")) { errEl.textContent = "Digite um e-mail válido."; errEl.style.display = "block"; return; }
+
+    btn.disabled = true;
+    btn.textContent = "Aguarde...";
+
+    try {
+      var resp = await fetch(WORKER_URL + "/create-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomName: roomName, userEmail: userEmail, userName: "" }),
+      });
+
+      var data = await resp.json();
+
+      if (!data.success || !data.init_point) {
+        errEl.textContent = data.error || "Erro ao criar pagamento. Tente novamente.";
+        errEl.style.display = "block";
+        return;
+      }
+
+      window.location.href = data.init_point;
+
+    } catch (err) {
+      errEl.textContent = "Erro de conexão. Tente novamente.";
+      errEl.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Ir para pagamento →";
     }
   }
-  function showToast() {
+
+  function showToast(msg, duration) {
     var t = document.getElementById("toast");
+    t.textContent = msg;
     t.classList.add("show");
-    setTimeout(function() { t.classList.remove("show"); }, 2000);
+    setTimeout(function() { t.classList.remove("show"); }, duration || 2000);
   }
-</script>
-</body>
+</script></body>
 </html>
