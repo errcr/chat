@@ -12,7 +12,7 @@
  * Adicione ao package.json:
  *   "scripts": { "build": "node build.js" }
  *
- * No Netlify, defina Build command como: node build.js
+ * Build command: node build.js
  */
 
 const fs   = require("fs");
