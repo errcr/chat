@@ -1567,8 +1567,17 @@ function attachRealtimeNewMessages() {
     var msg = snap.val();
     if (!msg) return;
     if (!renderedIds[snap.key]) return;
+    // reactions agora vêm do nó separado
+  });
 
-    renderReactions(snap.key, msg.reactions || {});
+  // Listener de reactions separado
+  db.ref("reactions/" + myRoom).on("value", function(snap) {
+    var allReactions = snap.val() || {};
+    Object.keys(allReactions).forEach(function(msgId) {
+      if (renderedIds[msgId]) {
+        renderReactions(msgId, allReactions[msgId] || {});
+      }
+    });
   });
 }
 
@@ -1985,7 +1994,7 @@ function addStrike() {
 
   function addReaction(msgId, emoji) {
     document.querySelectorAll(".emoji-picker.open").forEach(function(el){ el.classList.remove("open"); });
-    var ref = db.ref("messages/"+myRoom+"/"+msgId+"/reactions/"+myId);
+    var ref = db.ref("reactions/"+myRoom+"/"+msgId+"/"+myId);
     ref.once("value", function(snap) {
       if (snap.val() === emoji) ref.remove();
       else ref.set(emoji);
