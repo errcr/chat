@@ -1112,6 +1112,14 @@ function refreshUsersTable() {
       ' style="' + btnColor + 'border-radius:8px;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono)">' +
       btnLabel + '</button>';
 
+    var kickBtn = online
+      ? '<button class="kick-btn"' +
+        ' data-uid="' + escAttr(uid) + '"' +
+        ' data-name="' + escAttr(info.name) + '"' +
+        ' style="background:#fbbf2420;border:1px solid #fbbf2440;color:#fbbf24;border-radius:8px;font-size:12px;padding:4px 10px;cursor:pointer;font-family:var(--mono);margin-left:4px">' +
+        '⚡ Kick</button>'
+      : '';
+
     var nameDisplay = isBanned
       ? escHtml(info.name) + ' <span style="font-size:10px;color:#f87171;font-family:var(--mono)">[banido]</span>'
       : escHtml(info.name);
@@ -1127,7 +1135,7 @@ function refreshUsersTable() {
       '<td>' + statusHtml + '</td>' +
       '<td>' + roomHtml + '</td>' +
       '<td>' + countHtml + '</td>' +
-      '<td>' + banBtn + '</td>' +
+      '<td style="display:flex;gap:4px;align-items:center">' + banBtn + kickBtn + '</td>' +
     '</tr>';
   }).join("");
 }
@@ -1213,6 +1221,13 @@ function refreshUsersTable() {
     });
 
     document.getElementById("users-tbody").addEventListener("click", function(e) {
+      var kickBtn = e.target.closest(".kick-btn");
+      if (kickBtn) {
+        var uid  = kickBtn.getAttribute("data-uid");
+        var name = kickBtn.getAttribute("data-name");
+        confirmKick(uid, name);
+        return;
+      }
       var btn = e.target.closest(".action-btn");
       if (!btn) return;
       var uid    = btn.getAttribute("data-uid");
@@ -1244,6 +1259,28 @@ function refreshUsersTable() {
     closeUserModal();
     db.ref("banned/" + uid).remove();
     showToast(name + " foi desbanido.", "success");
+  }
+
+  function confirmKick(uid, name) {
+    showConfirm(
+      "Desconectar " + name,
+      "O usuário será removido de todas as salas imediatamente. Ele pode entrar novamente quando quiser.",
+      "Desconectar",
+      function() {
+        db.ref("presence").once("value", function(snap) {
+          if (!snap.exists()) return;
+          var updates = {};
+          Object.keys(snap.val()).forEach(function(room) {
+            if (snap.val()[room] && snap.val()[room][uid]) {
+              updates["presence/" + room + "/" + uid] = null;
+            }
+          });
+          db.ref().update(updates).then(function() {
+            showToast(name + " foi desconectado.", "success");
+          });
+        });
+      }
+    );
   }
 
   window.banUser = function(uid, name) {
