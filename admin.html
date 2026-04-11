@@ -1323,23 +1323,24 @@ function refreshUsersTable() {
       await db.ref().update(deletes);
     }
 
-    // Apaga presence e typing uid por uid (Firebase Rules não permitem apagar o nó $room inteiro)
+    // Apaga presence uid por uid (rules não permitem apagar $room inteiro)
     var presSnap = await db.ref("presence/" + room).once("value");
     if (presSnap.exists()) {
-      var presDeletes = {};
-      Object.keys(presSnap.val()).forEach(function(uid) {
-        presDeletes["presence/" + room + "/" + uid] = null;
-      });
-      await db.ref().update(presDeletes);
+      await Promise.all(
+        Object.keys(presSnap.val()).map(function(uid) {
+          return db.ref("presence/" + room + "/" + uid).remove();
+        })
+      );
     }
 
+    // Apaga typing uid por uid
     var typSnap = await db.ref("typing/" + room).once("value");
     if (typSnap.exists()) {
-      var typDeletes = {};
-      Object.keys(typSnap.val()).forEach(function(uid) {
-        typDeletes["typing/" + room + "/" + uid] = null;
-      });
-      await db.ref().update(typDeletes);
+      await Promise.all(
+        Object.keys(typSnap.val()).map(function(uid) {
+          return db.ref("typing/" + room + "/" + uid).remove();
+        })
+      );
     }
 
     await db.ref("room_settings/" + room).remove();
