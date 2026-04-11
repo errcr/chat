@@ -746,6 +746,15 @@
         err.textContent = "E-mail ou senha incorretos.";
         err.style.display = "block";
       });
+
+    // Segurança: se após 10s ainda estiver em loading, restaura o botão
+    setTimeout(function() {
+      if (btn.disabled) {
+        btn.disabled = false; btn.textContent = "Entrar";
+        err.textContent = "Tempo limite excedido. Verifique sua conexão e tente novamente.";
+        err.style.display = "block";
+      }
+    }, 10000);
   };
 
   window.doLogout = function() { auth.signOut(); };
@@ -759,6 +768,9 @@
     document.body.style.visibility = "visible";
     if (user) {
       db.ref("admins/" + user.uid).once("value", function(snap) {
+        var btn2 = document.getElementById("login-btn");
+        if (btn2) { btn2.disabled = false; btn2.textContent = "Entrar"; }
+
         if (snap.exists() && snap.val() === true) {
           db.ref("users/" + user.uid).update({
             name: user.displayName || user.email.split("@")[0],
@@ -777,6 +789,16 @@
           err.textContent = "Acesso negado. Esta conta não tem permissão de administrador.";
           err.style.display = "block";
         }
+      }, function(error) {
+        // Erro ao ler permissões do banco (ex: regra de segurança, sem internet)
+        auth.signOut();
+        var btn2 = document.getElementById("login-btn");
+        if (btn2) { btn2.disabled = false; btn2.textContent = "Entrar"; }
+        document.getElementById("login-screen").style.display = "flex";
+        document.getElementById("admin-panel").style.display  = "none";
+        var err = document.getElementById("error-msg");
+        err.textContent = "Erro ao verificar permissões. Verifique sua conexão.";
+        err.style.display = "block";
       });
     } else {
       document.getElementById("login-screen").style.display = "flex";
