@@ -1333,42 +1333,61 @@ async function checkRoomPass() {
       if (banRef) { banRef.off(); banRef = null; }
       banRef = db.ref("banned/" + myId);
       banRef.on("value", function(snap) {
-        if (snap.exists()) {
-          cleanupListeners();
-          auth.signOut();
-          show("auth-screen"); hide("room-screen"); hide("chat-app");
-          var err = document.getElementById("error-msg");
-          err.textContent = "Sua conta foi suspensa pelo administrador.";
-          err.style.display = "block";
+        if (!snap.exists()) return;
+        var data = snap.val();
+
+        // Se for kick temporário (flag kick:true), sai da sala sem banir a conta
+        if (data && data.kick === true) {
+          db.ref("banned/" + myId).remove(); // remove o ban imediatamente
+          leaveRoom();
+          setTimeout(function() {
+            var notice = document.createElement("div");
+            notice.style.cssText = "background:#fbbf2420;border:1px solid #fbbf2440;border-radius:10px;padding:10px 14px;font-size:13px;color:#fbbf24;font-family:var(--mono);margin-bottom:8px;text-align:center";
+            notice.textContent = "⚡ Você foi desconectado da sala pelo administrador.";
+            var inputGroup = document.querySelector(".input-group");
+            if (inputGroup) inputGroup.insertBefore(notice, inputGroup.firstChild);
+            setTimeout(function() { if (notice.parentNode) notice.parentNode.removeChild(notice); }, 5000);
+          }, 300);
+          return;
         }
+
+        // Ban permanente normal
+        cleanupListeners();
+        auth.signOut();
+        show("auth-screen"); hide("room-screen"); hide("chat-app");
+        var err = document.getElementById("error-msg");
+        err.textContent = "Sua conta foi suspensa pelo administrador.";
+        err.style.display = "block";
       });
     }
 
   var kickRef = null;
-  var kickListenStart = 0;
   function listenKickStatus() {
     if (kickRef) { kickRef.off(); kickRef = null; }
-    kickListenStart = Date.now();
-    kickRef = db.ref("kicked/" + myId);
-    kickRef.on("value", function(snap) {
-      if (!snap.exists()) return;
-      var data = snap.val();
-      var kickedAt = data && data.kickedAt ? data.kickedAt : 0;
-      // Ignora se o kick é mais antigo que o momento em que começamos a escutar
-      if (kickedAt < kickListenStart) {
+
+    // Remove qualquer kick residual antes de começar a escutar
+    db.ref("kicked/" + myId).remove().then(function() {
+      kickRef = db.ref("kicked/" + myId);
+      kickRef.on("value", function(snap) {
+        if (!snap.exists()) return;
+        var data = snap.val();
+        // Só age se o kick foi nos últimos 30 segundos (evita kicks antigos residuais)
+        var kickedAt = data && data.kickedAt ? data.kickedAt : 0;
+        if (Date.now() - kickedAt > 30000) {
+          db.ref("kicked/" + myId).remove();
+          return;
+        }
         db.ref("kicked/" + myId).remove();
-        return;
-      }
-      db.ref("kicked/" + myId).remove();
-      leaveRoom();
-      setTimeout(function() {
-        var notice = document.createElement("div");
-        notice.style.cssText = "background:#fbbf2420;border:1px solid #fbbf2440;border-radius:10px;padding:10px 14px;font-size:13px;color:#fbbf24;font-family:var(--mono);margin-bottom:8px;text-align:center";
-        notice.textContent = "⚡ Você foi desconectado da sala pelo administrador.";
-        var inputGroup = document.querySelector(".input-group");
-        if (inputGroup) inputGroup.insertBefore(notice, inputGroup.firstChild);
-        setTimeout(function() { if (notice.parentNode) notice.parentNode.removeChild(notice); }, 5000);
-      }, 300);
+        leaveRoom();
+        setTimeout(function() {
+          var notice = document.createElement("div");
+          notice.style.cssText = "background:#fbbf2420;border:1px solid #fbbf2440;border-radius:10px;padding:10px 14px;font-size:13px;color:#fbbf24;font-family:var(--mono);margin-bottom:8px;text-align:center";
+          notice.textContent = "⚡ Você foi desconectado da sala pelo administrador.";
+          var inputGroup = document.querySelector(".input-group");
+          if (inputGroup) inputGroup.insertBefore(notice, inputGroup.firstChild);
+          setTimeout(function() { if (notice.parentNode) notice.parentNode.removeChild(notice); }, 5000);
+        }, 300);
+      });
     });
   } 
 

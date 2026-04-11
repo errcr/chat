@@ -1267,18 +1267,12 @@ function refreshUsersTable() {
       "O usuário será removido de todas as salas imediatamente. Ele pode entrar novamente quando quiser.",
       "Desconectar",
       function() {
-        db.ref("presence").once("value", function(snap) {
-          if (!snap.exists()) return;
-          var updates = {};
-          Object.keys(snap.val()).forEach(function(room) {
-            if (snap.val()[room] && snap.val()[room][uid]) {
-              updates["presence/" + room + "/" + uid] = null;
-            }
-          });
-          db.ref().update(updates).then(function() {
+        // Grava no mesmo nó "banned" mas com flag kick:true
+        // O app detecta, sai da sala e remove o ban sozinho
+        db.ref("banned/" + uid).set({ name: name, kick: true, kickedAt: Date.now() })
+          .then(function() {
             showToast(name + " foi desconectado.", "success");
           });
-        });
       }
     );
   }
