@@ -1121,31 +1121,59 @@ function buildMessageRow(msg) {
 
   function loginGoogle() {
     var provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-      .then(function(result) {
-        var user = result.user;
-        // Salva/atualiza dados do usuário no DB
-        var ref = db.ref("users/" + user.uid);
-        ref.once("value", function(snap) {
-          var existing = snap.val() || {};
-          ref.set({
-            name: existing.name || user.displayName || "Usuário",
-            email: user.email || "",
-            emoji: existing.emoji || "",
-            lastSeen: Date.now(),
-            createdAt: existing.createdAt || Date.now()
-          });
+    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
+                   /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+    function onSuccess(user) {
+      if (!user) return;
+      var ref = db.ref("users/" + user.uid);
+      ref.once("value", function(snap) {
+        var existing = snap.val() || {};
+        ref.set({
+          name: existing.name || user.displayName || "Usuário",
+          email: user.email || "",
+          emoji: existing.emoji || "",
+          lastSeen: Date.now(),
+          createdAt: existing.createdAt || Date.now()
         });
-      })
-      .catch(function(err) {
-        var errMsg = document.getElementById("error-msg");
-        if (errMsg) {
-          errMsg.textContent = "Erro ao entrar com Google. Tente novamente.";
-          errMsg.style.display = "block";
-        }
-        console.error("Google login error:", err);
       });
+    }
+
+    function onError(err) {
+      var errMsg = document.getElementById("error-msg");
+      if (errMsg) {
+        errMsg.textContent = "Erro ao entrar com Google. Tente novamente.";
+        errMsg.style.display = "block";
+      }
+      console.error("Google login error:", err);
+    }
+
+    if (isSafari) {
+      auth.signInWithRedirect(provider).catch(onError);
+    } else {
+      auth.signInWithPopup(provider)
+        .then(function(result) { onSuccess(result.user); })
+        .catch(onError);
+    }
   }
+
+  // Captura resultado do redirect (Safari/iOS)
+  auth.getRedirectResult().then(function(result) {
+    if (result && result.user) {
+      var user = result.user;
+      var ref = db.ref("users/" + user.uid);
+      ref.once("value", function(snap) {
+        var existing = snap.val() || {};
+        ref.set({
+          name: existing.name || user.displayName || "Usuário",
+          email: user.email || "",
+          emoji: existing.emoji || "",
+          lastSeen: Date.now(),
+          createdAt: existing.createdAt || Date.now()
+        });
+      });
+    }
+  }).catch(function() {});
 
   var authInitialized = false;
 
