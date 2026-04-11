@@ -811,6 +811,18 @@
   // ── Tabs ──
   var activeTab = "users";
   window.switchTab = function(tab) {
+    // Se estava na aba de mensagens e está saindo, desanexa listeners de realtime
+    if (activeTab === "messages" && tab !== "messages") {
+      detachAdminListeners();
+      selectedRoom = null;
+      adminOldestTs = null;
+      adminOldestKey = null;
+      adminNewestTs = null;
+      adminHasMore = true;
+      adminRenderedIds = {};
+      adminScrollAttached = false;
+    }
+
     activeTab = tab;
     ["users","messages","online","stats"].forEach(function(t) {
       document.getElementById("pane-" + t).style.display = t === tab ? "block" : "none";
@@ -819,6 +831,15 @@
     if (tab === "online") renderOnlineTab();
     if (tab === "users")  refreshUsersTable();
     if (tab === "stats")  initStatsTab();
+
+    // Ao entrar na aba messages, reseta o painel para estado limpo
+    if (tab === "messages") {
+      var panel = document.getElementById("messages-panel");
+      if (panel) {
+        panel.innerHTML =
+          '<div class="empty-panel"><div class="icon">\uD83D\uDCAC</div><div>Selecione uma sala ao lado</div></div>';
+      }
+    }
   };
 
   // ── Data ──

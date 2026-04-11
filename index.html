@@ -368,7 +368,7 @@
       <div class="input-inner">
         <button class="img-clip-btn" onclick="document.getElementById('img-file').click()" title="Enviar imagem">📎</button>
         <input type="file" id="img-file" accept="image/*" style="display:none" onchange="handleImage(event)"/>
-        <textarea id="msg-input" rows="1" placeholder="Escreva uma mensagem..." maxlength="500"></textarea>
+        <textarea id="msg-input" rows="1" placeholder="Escreva uma mensagem..." maxlength="300"></textarea>
       </div>
     </div>
     <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
@@ -552,8 +552,8 @@
   }
 
   function linkifyMentions(html) {
-    // Destaca @nome nas bolhas
-    return html.replace(/@([A-Za-zÀ-ÿ0-9_. ]+?)(?=\s|$|<)/g, function(match, name) {
+    // Destaca @nome nas bolhas — não captura espaços para evitar falsos positivos
+    return html.replace(/@([A-Za-zÀ-ÿ0-9_.]+)/g, function(match) {
       return '<span class="mention-tag">' + match + '</span>';
     });
   }
@@ -1395,9 +1395,8 @@ async function checkRoomPass() {
     newestLoadedTs = null;
     loadingOlderMessages = false;
     hasMoreOldMessages = true;
+    scrollHandlerAttached = false;
   }
-
-  var connectedRef = null;
   var seenPoll = null;
   var seenMaxTs = 0;
 
