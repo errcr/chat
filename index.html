@@ -1134,31 +1134,27 @@ function buildMessageRow(msg) {
   }
 
   // Captura resultado do redirect
-  firebase.auth().getRedirectResult().then(function(result) {
-    if (result && result.user) {
-      var user = result.user;
-      var ref = db.ref("users/" + user.uid);
-      ref.once("value", function(snap) {
-        var existing = snap.val() || {};
-        ref.set({
-          name: existing.name || user.displayName || "Usuário",
-          email: user.email || "",
-          emoji: existing.emoji || "",
-          lastSeen: Date.now(),
-          createdAt: existing.createdAt || Date.now()
-        });
-      });
-    }
-  }).catch(function() {});
-
   var authInitialized = false;
 
   auth.onAuthStateChanged(function(user) {
     if (user) {
-      // Só faz checagem completa na primeira inicialização
-      // Reconexões do Firebase não devem tirar o usuário do chat
       if (!authInitialized) {
         authInitialized = true;
+        // Salva/atualiza dados se vier do Google (sem email/senha)
+        if (user.providerData && user.providerData[0] && user.providerData[0].providerId === "google.com") {
+          var ref = db.ref("users/" + user.uid);
+          ref.once("value", function(snap) {
+            var existing = snap.val() || {};
+            if (!existing.name) {
+              ref.update({
+                name: user.displayName || "Usuário",
+                email: user.email || "",
+                lastSeen: Date.now(),
+                createdAt: existing.createdAt || Date.now()
+              });
+            }
+          });
+        }
         checkBanned(user);
       }
     } else {
