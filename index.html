@@ -1135,6 +1135,9 @@ function buildMessageRow(msg) {
             createdAt: existing.createdAt || Date.now()
           });
         });
+        // Garante que o fluxo de login continua mesmo se authInitialized já era true
+        authInitialized = true;
+        checkBanned(user);
       })
       .catch(function(err) {
         var errMsg = document.getElementById("error-msg");
