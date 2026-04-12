@@ -1121,9 +1121,6 @@ function buildMessageRow(msg) {
 
   function loginGoogle() {
     var provider = new firebase.auth.GoogleAuthProvider();
-    var isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) ||
-                   /iPad|iPhone|iPod/.test(navigator.userAgent);
-
     function onSuccess(user) {
       if (!user) return;
       var ref = db.ref("users/" + user.uid);
@@ -1148,16 +1145,10 @@ function buildMessageRow(msg) {
       console.error("Google login error:", err);
     }
 
-    if (isSafari) {
-      auth.signInWithRedirect(provider).catch(onError);
-    } else {
-      auth.signInWithPopup(provider)
-        .then(function(result) { onSuccess(result.user); })
-        .catch(onError);
-    }
+    auth.signInWithRedirect(provider).catch(onError);
   }
 
-  // Captura resultado do redirect (Safari/iOS)
+  // Captura resultado do redirect
   auth.getRedirectResult().then(function(result) {
     if (result && result.user) {
       var user = result.user;
