@@ -417,7 +417,7 @@
 <script>
   firebase.initializeApp({
     apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
-    authDomain: "secretchat.com.br",
+    authDomain: "chat-d61cc.firebaseapp.com",
     databaseURL: "https://chat-d61cc-default-rtdb.firebaseio.com",
     projectId: "chat-d61cc",
     storageBucket: "chat-d61cc.firebasestorage.app",
@@ -1120,17 +1120,30 @@ function buildMessageRow(msg) {
   function logout() { auth.signOut(); }
 
   function loginGoogle() {
-    try {
-      var provider = new firebase.auth.GoogleAuthProvider();
-      firebase.auth().signInWithRedirect(provider);
-    } catch(e) {
-      console.error("Google login error:", e);
-      var errMsg = document.getElementById("error-msg");
-      if (errMsg) {
-        errMsg.textContent = "Erro ao entrar com Google. Tente novamente.";
-        errMsg.style.display = "block";
-      }
-    }
+    var provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider)
+      .then(function(result) {
+        var user = result.user;
+        var ref = db.ref("users/" + user.uid);
+        ref.once("value", function(snap) {
+          var existing = snap.val() || {};
+          ref.set({
+            name: existing.name || user.displayName || "Usuário",
+            email: user.email || "",
+            emoji: existing.emoji || "",
+            lastSeen: Date.now(),
+            createdAt: existing.createdAt || Date.now()
+          });
+        });
+      })
+      .catch(function(err) {
+        var errMsg = document.getElementById("error-msg");
+        if (errMsg) {
+          errMsg.textContent = "Erro ao entrar com Google. Tente novamente.";
+          errMsg.style.display = "block";
+        }
+        console.error("Google login error:", err);
+      });
   }
 
   // Captura resultado do redirect
