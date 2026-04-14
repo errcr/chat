@@ -1110,7 +1110,18 @@ function buildMessageRow(msg) {
     };
     if (isRegisterMode) {
       auth.createUserWithEmailAndPassword(email, password)
-        .then(function(cred) { return cred.user.updateProfile({ displayName: name }); })
+        .then(function(cred) {
+          var user = cred.user;
+          return user.updateProfile({ displayName: name }).then(function() {
+            return db.ref("users/" + user.uid).set({
+              name: name,
+              email: user.email || "",
+              emoji: "",
+              lastSeen: Date.now(),
+              createdAt: Date.now()
+            });
+          });
+        })
         .catch(function(e) { btn.disabled=false; btn.textContent="Criar conta"; showError(msgs[e.code]||"Erro: "+e.message); });
     } else {
       auth.signInWithEmailAndPassword(email, password)
@@ -1321,7 +1332,16 @@ async function checkRoomPass() {
     var user = auth.currentUser;
     if (!user) return;
     myRoom = room; myId = user.uid;
-    myName = user.displayName || user.email.split("@")[0];
+    // Busca o nome salvo no Firebase para garantir consistência com a tabela users
+    // user.displayName pode estar desatualizado na sessão (especialmente email/senha)
+    db.ref("users/" + user.uid + "/name").once("value", function(snap) {
+      if (snap.val()) myName = snap.val();
+      else myName = user.displayName || user.email.split("@")[0];
+      _continueStartChat(room, user);
+    });
+  }
+
+  function _continueStartChat(room, user) {
     renderedIds = {};
     lastUserId = null;
     oldestLoadedTs = null;
