@@ -1,4 +1,4 @@
-const CACHE_NAME = "secret-chat-0f613dac";
+const CACHE_NAME = "secret-chat-c5314fa0";
 const APP_SHELL = [
   "/",
   "/index.html",
