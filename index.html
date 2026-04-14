@@ -428,6 +428,7 @@
   var auth = firebase.auth();
   var db   = firebase.database();
   var IMGBB_WORKER_URL = "https://secret-chat-payment.pericles-sql.workers.dev/upload-image";
+  var UPLOAD_SECRET = "sc_upload_xK9mP3qR7vLw4nB2dF8hJ6";
 
   var COLORS = ["#7c6af7","#ec4899","#14b8a6","#f59e0b","#3b82f6","#ef4444","#8b5cf6","#10b981"];
   function colorFor(name) {
@@ -1951,6 +1952,7 @@ function enviarMensagem(text) {
 
     fetch(IMGBB_WORKER_URL, {
       method: "POST",
+      headers: { "x-upload-token": UPLOAD_SECRET },
       body: formData
     })
     .then(function(r) { return r.json(); })
