@@ -272,7 +272,15 @@
     <span class="input-label">E-mail</span>
     <input class="input-field" id="email-input" type="email" placeholder="seu@email.com"/>
     <span class="input-label">Senha</span>
-    <input class="input-field" id="password-input" type="password" placeholder="••••••••"/>
+    <div style="position:relative;width:100%">
+      <input class="input-field" id="password-input" type="password" placeholder="••••••••" style="width:100%;padding-right:44px"/>
+      <button type="button" onclick="togglePasswordVisibility()" id="eye-btn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:4px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.5);transition:color .2s" aria-label="Mostrar senha">
+        <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+    </div>
     <button class="btn-primary" id="auth-btn" onclick="handleAuth()">Entrar</button>
   </div>
   <div class="auth-divider"><span>ou</span></div>
@@ -287,6 +295,7 @@
   </button>
   <div class="auth-toggle" id="auth-toggle">Não tem conta? <a onclick="toggleMode()">Criar conta</a></div>
   <button id="forgot-btn" onclick="openForgot()" style="background:none;border:none;color:var(--muted);font-size:12px;font-family:var(--mono);cursor:pointer;padding:0;margin-top:-8px">Esqueci minha senha</button>
+  <a href="/about.html" style="font-size:12px;color:rgba(255,255,255,.35);font-family:var(--mono);text-decoration:none;margin-top:4px;transition:color .2s" onmouseover="this.style.color='rgba(255,255,255,.65)'" onmouseout="this.style.color='rgba(255,255,255,.35)'">Como funciona →</a>
 </div>
 
 <!-- MODAL RECUPERAR SENHA -->
@@ -451,6 +460,17 @@
     });
   }
   function showError(msg) { var el=document.getElementById("error-msg"); el.textContent=msg; el.style.display="block"; }
+  function togglePasswordVisibility() {
+    var input = document.getElementById("password-input");
+    var btn   = document.getElementById("eye-btn");
+    var isHidden = input.type === "password";
+    input.type = isHidden ? "text" : "password";
+    btn.style.color = isHidden ? "rgba(255,255,255,.85)" : "rgba(255,255,255,.5)";
+    document.getElementById("eye-icon").innerHTML = isHidden
+      ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/>'
+      : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+
   function hideError() { document.getElementById("error-msg").style.display="none"; }
   function show(id) {
     document.getElementById(id).style.display="flex";
