@@ -1,1 +1,8 @@
-
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "br.com.secretchat.twa",
+    "sha256_cert_fingerprints": ["51:BA:44:5B:2B:30:6A:6B:D5:01:77:3D:45:66:52:E9:2B:D9:6C:BA:B9:10:FF:28:37:F6:F1:40:D2:81:74:A8"]
+  }
+}]
