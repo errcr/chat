@@ -1,13 +1,15 @@
 {
   "name": "Secret Chat",
   "short_name": "Secret Chat",
-  "description": "Chat em tempo real",
+  "description": "Chat em tempo real, seguro e privado. Crie uma sala e converse secretamente agora mesmo.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f3ff",
+  "background_color": "#0f0e17",
   "theme_color": "#7c6af7",
   "orientation": "portrait",
+  "lang": "pt-BR",
+  "categories": ["social", "communication"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -21,5 +23,6 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": []
 }
