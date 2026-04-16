@@ -1,4 +1,5 @@
 {
+  "id": "br.com.secretchat",
   "name": "Secret Chat",
   "short_name": "Secret Chat",
   "description": "Chat em tempo real, seguro e privado. Crie uma sala e converse secretamente agora mesmo.",
@@ -9,20 +10,37 @@
   "theme_color": "#7c6af7",
   "orientation": "portrait",
   "lang": "pt-BR",
+  "dir": "ltr",
   "categories": ["social", "communication"],
+  "prefer_related_applications": false,
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ],
-  "screenshots": []
+  "screenshots": [
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Secret Chat"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Entrar no chat",
+      "url": "/",
+      "description": "Abrir o Secret Chat"
+    }
+  ]
 }
