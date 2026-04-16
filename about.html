@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Secret Chat — Como funciona</title>
+  <meta name="description" content="Saiba como o Secret Chat funciona. Chat em tempo real, seguro e privado."/>
+  <meta name="robots" content="index, follow"/>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="apple-touch-icon" href="/icon-192.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0914;
+      --surface: #12102a;
+      --surface2: #1a1735;
+      --border: #1e1b3a;
+      --accent: #7c6af7;
+      --accent2: #a78bfa;
+      --accent3: #c4b5fd;
+      --text: #e8e6f4;
+      --muted: #6b6880;
+      --green: #34d399;
+      --font: 'Nunito', sans-serif;
+      --mono: 'DM Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── BG animado ── */
+    .bg-layer {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 10%, #7c6af718 0%, transparent 55%),
+        radial-gradient(ellipse 50% 60% at 85% 90%, #a78bfa12 0%, transparent 55%),
+        radial-gradient(ellipse 40% 40% at 50% 50%, #4f46e50a 0%, transparent 70%);
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: rgba(10,9,20,.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(124,106,247,.12);
+    }
+
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; color: var(--text);
+      font-weight: 800; font-size: 15px;
+    }
+
+    .nav-logo-icon {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .nav-links {
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    .nav-link {
+      font-size: 13px; font-family: var(--mono);
+      color: var(--muted); text-decoration: none;
+      padding: 6px 14px; border-radius: 20px;
+      transition: color .2s, background .2s;
+    }
+    .nav-link:hover { color: var(--text); background: rgba(255,255,255,.06); }
+
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-size: 13px; font-weight: 700;
+      padding: 8px 18px; border-radius: 20px;
+      text-decoration: none;
+      transition: opacity .2s, transform .15s;
+    }
+    .nav-cta:hover { opacity: .9; transform: translateY(-1px); }
+
+    /* ── WRAPPER ── */
+    .wrapper {
+      position: relative; z-index: 1;
+      max-width: 680px; margin: 0 auto;
+      padding: 100px 24px 80px;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      text-align: center;
+      margin-bottom: 72px;
+      animation: fadeUp .6s ease both;
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(124,106,247,.1);
+      border: 1px solid rgba(124,106,247,.25);
+      border-radius: 40px; padding: 6px 16px;
+      font-size: 12px; font-family: var(--mono); color: var(--accent3);
+      letter-spacing: .5px; margin-bottom: 28px;
+    }
+
+    .hero-badge-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 9vw, 56px);
+      font-weight: 900; line-height: 1.1;
+      letter-spacing: -1.5px; margin-bottom: 20px;
+    }
+
+    .hero h1 .grad {
+      background: linear-gradient(135deg, var(--accent2), #c4b5fd, #e879f9);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 17px; color: var(--muted); line-height: 1.7;
+      max-width: 480px; margin: 0 auto 36px;
+    }
+
+    .hero-btns {
+      display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; font-family: var(--font); font-size: 15px; font-weight: 800;
+      padding: 13px 28px; border-radius: 14px; text-decoration: none;
+      transition: opacity .2s, transform .15s;
+      box-shadow: 0 8px 32px rgba(124,106,247,.35);
+    }
+    .btn-primary:hover { opacity: .92; transform: translateY(-2px); }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      color: var(--text); font-family: var(--font); font-size: 15px; font-weight: 700;
+      padding: 13px 28px; border-radius: 14px; text-decoration: none;
+      transition: background .2s, border-color .2s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
+
+    /* ── SEÇÃO ── */
+    .section {
+      margin-bottom: 64px;
+      animation: fadeUp .6s ease both;
+    }
+
+    .section-label {
+      font-size: 11px; font-weight: 700; font-family: var(--mono);
+      color: var(--accent2); text-transform: uppercase; letter-spacing: 1.5px;
+      margin-bottom: 12px;
+    }
+
+    .section h2 {
+      font-size: 26px; font-weight: 900; letter-spacing: -.5px;
+      margin-bottom: 16px; line-height: 1.25;
+    }
+
+    .section p {
+      font-size: 15px; color: var(--muted); line-height: 1.75;
+    }
+
+    /* ── STEPS ── */
+    .steps {
+      display: flex; flex-direction: column; gap: 16px;
+      margin-top: 28px;
+    }
+
+    .step {
+      display: flex; gap: 16px; align-items: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+      transition: border-color .2s, transform .2s;
+    }
+    .step:hover { border-color: rgba(124,106,247,.35); transform: translateX(4px); }
+
+    .step-num {
+      width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; font-family: var(--mono); color: #fff;
+    }
+
+    .step-body { flex: 1; }
+    .step-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .step-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* ── FEATURES GRID ── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px; margin-top: 28px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+      transition: border-color .2s, transform .2s;
+    }
+    .feature-card:hover { border-color: rgba(124,106,247,.35); transform: translateY(-3px); }
+
+    .feature-icon {
+      width: 40px; height: 40px; border-radius: 12px;
+      background: rgba(124,106,247,.12);
+      border: 1px solid rgba(124,106,247,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-bottom: 12px;
+    }
+
+    .feature-title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+    .feature-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+    /* ── SALAS ── */
+    .rooms-compare {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      margin-top: 28px;
+    }
+
+    .room-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 20px;
+    }
+
+    .room-card.premium {
+      border-color: rgba(124,106,247,.4);
+      background: linear-gradient(135deg, #1a1535, #12102a);
+      position: relative; overflow: hidden;
+    }
+
+    .room-card.premium::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, #7c6af760, transparent);
+    }
+
+    .room-type {
+      font-size: 11px; font-weight: 700; font-family: var(--mono);
+      text-transform: uppercase; letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .room-card:not(.premium) .room-type { color: var(--muted); }
+    .room-card.premium .room-type { color: var(--accent3); }
+
+    .room-card h3 { font-size: 16px; font-weight: 800; margin-bottom: 16px; }
+
+    .room-features { display: flex; flex-direction: column; gap: 8px; }
+
+    .room-feature {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12.5px; color: var(--muted);
+    }
+
+    .room-feature .check {
+      width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 9px;
+    }
+
+    .room-card:not(.premium) .check { background: rgba(255,255,255,.08); color: var(--muted); }
+    .room-card.premium .check { background: rgba(124,106,247,.25); color: var(--accent3); }
+
+    /* ── FAQ ── */
+    .faq { margin-top: 28px; display: flex; flex-direction: column; gap: 2px; }
+
+    .faq-item {
+      border-bottom: 1px solid var(--border);
+      padding: 18px 0;
+    }
+    .faq-item:first-child { border-top: 1px solid var(--border); }
+
+    .faq-q {
+      font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--text);
+    }
+    .faq-a {
+      font-size: 13.5px; color: var(--muted); line-height: 1.7;
+    }
+
+    /* ── CTA FINAL ── */
+    .cta-box {
+      background: linear-gradient(135deg, #1a1535, #12102a);
+      border: 1px solid rgba(124,106,247,.3);
+      border-radius: 24px; padding: 48px 32px;
+      text-align: center; margin-top: 72px;
+      position: relative; overflow: hidden;
+      animation: fadeUp .6s ease both;
+    }
+
+    .cta-box::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, #7c6af760, transparent);
+    }
+
+    .cta-box h2 { font-size: 28px; font-weight: 900; margin-bottom: 12px; letter-spacing: -.5px; }
+    .cta-box p { font-size: 15px; color: var(--muted); margin-bottom: 28px; }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center; padding: 32px 24px;
+      font-size: 12px; color: var(--muted); font-family: var(--mono);
+      border-top: 1px solid var(--border);
+      position: relative; z-index: 1;
+    }
+
+    footer a { color: var(--accent2); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+
+    .section:nth-child(2) { animation-delay: .1s; }
+    .section:nth-child(3) { animation-delay: .2s; }
+    .section:nth-child(4) { animation-delay: .3s; }
+    .section:nth-child(5) { animation-delay: .4s; }
+
+    /* ── MOBILE ── */
+    @media (max-width: 500px) {
+      .rooms-compare { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .hero h1 { font-size: 36px; }
+      .nav-links { display: none; }
+      .cta-box { padding: 32px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-layer"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">💬</div>
+    Secret Chat
+  </a>
+  <div class="nav-links">
+    <a href="/premium.html" class="nav-link">Premium</a>
+    <a href="/" class="nav-cta">Entrar no chat →</a>
+  </div>
+</nav>
+
+<div class="wrapper">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">
+      <div class="hero-badge-dot"></div>
+      Chat em tempo real
+    </div>
+    <h1>Converse com<br><span class="grad">privacidade real.</span></h1>
+    <p>Secret Chat é um chat em tempo real onde você cria ou entra em salas, conversa com quem quiser e mantém tudo no controle.</p>
+    <div class="hero-btns">
+      <a href="/" class="btn-primary">Começar agora →</a>
+      <a href="/premium.html" class="btn-secondary">Ver planos</a>
+    </div>
+  </div>
+
+  <!-- COMO FUNCIONA -->
+  <div class="section">
+    <div class="section-label">Como funciona</div>
+    <h2>Em 3 passos simples</h2>
+    <p>Sem instalação, sem burocracia. Só abrir e conversar.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Crie sua conta</div>
+          <div class="step-desc">Cadastro rápido com e-mail e senha, ou entre direto com Google. Escolha seu nome de exibição e um avatar emoji.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Entre ou crie uma sala</div>
+          <div class="step-desc">Digite qualquer nome de sala. Se já existe, você entra. Se não existe, ela é criada na hora e você vira o dono.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Comece a conversar</div>
+          <div class="step-desc">Mensagens em tempo real, reações, replies, menções @nome, envio de imagens e muito mais — tudo funcionando na hora.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECURSOS -->
+  <div class="section">
+    <div class="section-label">Recursos</div>
+    <h2>Tudo que você precisa</h2>
+    <p>Funciona como app no celular e no computador, sem precisar instalar nada.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Tempo real</div>
+        <div class="feature-desc">Mensagens chegam instantaneamente, sem precisar recarregar a página.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">↩️</div>
+        <div class="feature-title">Reply e menções</div>
+        <div class="feature-desc">Responda mensagens específicas e mencione pessoas com @nome.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">😄</div>
+        <div class="feature-title">Reações emoji</div>
+        <div class="feature-desc">Reaja a qualquer mensagem com ❤️ 😂 👍 e outros emojis.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🖼️</div>
+        <div class="feature-title">Envio de imagens</div>
+        <div class="feature-desc">Envie imagens de até 20MB diretamente no chat.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🟢</div>
+        <div class="feature-title">Status online</div>
+        <div class="feature-desc">Veja quem está na sala e quem está digitando em tempo real.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">✓✓</div>
+        <div class="feature-title">Confirmação de leitura</div>
+        <div class="feature-desc">Saiba quando sua mensagem foi lida com os ticks azuis.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <div class="feature-title">Funciona como app</div>
+        <div class="feature-desc">Instale na tela inicial do celular e use offline quando necessário.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌙</div>
+        <div class="feature-title">Modo claro e escuro</div>
+        <div class="feature-desc">Alterne entre tema claro e escuro com um clique.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SALAS -->
+  <div class="section">
+    <div class="section-label">Salas</div>
+    <h2>Pública ou privada — você decide</h2>
+    <p>Qualquer pessoa pode criar uma sala gratuita. Com o plano Premium, sua sala fica protegida por senha.</p>
+
+    <div class="rooms-compare">
+      <div class="room-card">
+        <div class="room-type">Gratuito</div>
+        <h3>Sala aberta</h3>
+        <div class="room-features">
+          <div class="room-feature"><div class="check">✓</div> Qualquer pessoa pode entrar</div>
+          <div class="room-feature"><div class="check">✓</div> Mensagens em tempo real</div>
+          <div class="room-feature"><div class="check">✓</div> Todos os recursos do chat</div>
+          <div class="room-feature"><div class="check">✓</div> Histórico de mensagens</div>
+          <div class="room-feature"><div class="check">—</div> Sem senha de proteção</div>
+        </div>
+      </div>
+      <div class="room-card premium">
+        <div class="room-type">✨ Premium · R$10/mês</div>
+        <h3>Sala privada</h3>
+        <div class="room-features">
+          <div class="room-feature"><div class="check">✓</div> Protegida por senha</div>
+          <div class="room-feature"><div class="check">✓</div> Só entra quem você quer</div>
+          <div class="room-feature"><div class="check">✓</div> Você é o dono da sala</div>
+          <div class="room-feature"><div class="check">✓</div> Altere a senha quando quiser</div>
+          <div class="room-feature"><div class="check">✓</div> Ativação automática</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="section">
+    <div class="section-label">Dúvidas</div>
+    <h2>Perguntas frequentes</h2>
+
+    <div class="faq">
+      <div class="faq-item">
+        <div class="faq-q">Precisa instalar alguma coisa?</div>
+        <div class="faq-a">Não. O Secret Chat funciona direto no navegador, em qualquer dispositivo. Se quiser, pode instalar como app na tela inicial do celular — basta tocar em "Adicionar à tela inicial" no navegador.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">As mensagens ficam salvas?</div>
+        <div class="faq-a">Sim. O histórico da sala fica disponível para todos os membros. As últimas 50 mensagens aparecem ao entrar, e você pode carregar mensagens mais antigas rolando para cima.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">O que acontece se eu sair da sala?</div>
+        <div class="faq-a">Nada. A sala continua existindo, as mensagens ficam salvas, e você pode voltar a qualquer momento. O histórico de salas recentes fica salvo automaticamente.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Como funciona o plano Premium?</div>
+        <div class="faq-a">Você paga R$10 por mês por sala. Após o pagamento via Mercado Pago (Pix, cartão ou boleto), a sala é ativada automaticamente e você recebe a senha por e-mail. Não há cobrança automática.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Posso usar no celular e no computador ao mesmo tempo?</div>
+        <div class="faq-a">Sim. O Secret Chat sincroniza em tempo real em todos os dispositivos. Você pode estar logado em vários lugares ao mesmo tempo.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-box">
+    <h2>Pronto para começar?</h2>
+    <p>Crie sua conta gratuita em segundos e entre em uma sala agora.</p>
+    <a href="/" class="btn-primary">Entrar no Secret Chat →</a>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>Secret Chat · <a href="/">Entrar</a> · <a href="/premium.html">Premium</a> · <a href="/about.html">Como funciona</a></p>
+  <p style="margin-top:8px;font-size:11px">© 2026 Secret Chat · secretchat.com.br</p>
+</footer>
+
+</body>
+</html>
