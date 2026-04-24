@@ -1502,6 +1502,8 @@ async function checkRoomPass() {
     msgCount = 0;
     lastMsgTime = 0;
     newMsgsBelowCount = 0;
+    myRoom = "";
+    myId = "";
   }
 
   var connectedRef = null;
@@ -1553,7 +1555,7 @@ async function checkRoomPass() {
     connectedRef = db.ref(".info/connected");
     connectedRef.on("value", function(snap) {
       if (!snap.val()) return;
-      if (!myRoom || !myId) return;
+      if (!myRoom || !myId || !presenceRef) return;
       presenceRef.onDisconnect().remove();
       presenceRef.set({ name:myName, online:true, emoji:myEmoji||"", ts:Date.now() });
     });
