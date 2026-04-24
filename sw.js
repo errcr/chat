@@ -1,4 +1,4 @@
-const CACHE_NAME = "secret-chat-e84d69ba";
+const CACHE_NAME = "secret-chat-80b662d6";
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -7,7 +7,8 @@ const APP_SHELL = [
   "/icon-192.png",
   "/icon-512.png",
   "/favicon.ico",
-  "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap"
+  "https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Nunito:wght@400;600;700;800&display=swap",
+  "/.well-known/assetlinks.json"
 ];
 
 // Responde ao postMessage SKIP_WAITING vindo do cliente
