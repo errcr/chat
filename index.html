@@ -1566,20 +1566,27 @@ async function checkRoomPass() {
       var now = Date.now();
       var STALE_MS = 90000; // 90 segundos — considera fantasma
 
-      // Filtra entradas antigas e remove do Firebase
+      // Filtra visualmente entradas antigas, mas NAO remove do Firebase no cliente.
+      // A remocao fica a cargo do onDisconnect().remove() do Firebase,
+      // evitando que um cliente delete a presenca valida de outro usuario.
+      var filtered = {};
       Object.keys(val).forEach(function(uid) {
         var entry = val[uid];
         if (!entry) return;
         var isStale = entry.ts && (now - entry.ts) > STALE_MS;
-        if (isStale && uid !== myId) {
-          delete val[uid];
-          db.ref("presence/"+myRoom+"/"+uid).remove();
+        if (!isStale) {
+          filtered[uid] = entry;
+        }
+        // Se o proprio no estiver stale, re-registra presenca
+        if (isStale && uid === myId && presenceRef) {
+          presenceRef.onDisconnect().remove();
+          presenceRef.set({ name:myName, online:true, emoji:myEmoji||"", ts:Date.now() });
         }
       });
 
-      var count = Object.keys(val).length;
+      var count = Object.keys(filtered).length;
       document.getElementById("online-count").textContent = count===1?"1 online":count+" online";
-      renderMembers(val);
+      renderMembers(filtered);
     });
 
     // Atualiza o ts a cada 30s para não ser considerado fantasma
