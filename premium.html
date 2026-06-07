@@ -578,6 +578,17 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyA0D_A9gFG5t7b0DnSDnpRZm5aAXvBZ7xc",
+    authDomain: "chat-d61cc.firebaseapp.com",
+    projectId: "chat-d61cc",
+    appId: "1:726411546652:web:c085842f36691dc0c4cfd9"
+  });
+  var auth = firebase.auth();
+</script>
 <script>
   var WORKER_URL = "https://secret-chat-payment.pericles-sql.workers.dev";
 
@@ -591,7 +602,18 @@
     document.getElementById("modal").classList.add("open");
     document.getElementById("modal-error").style.display = "none";
     document.getElementById("room-name-input").value = "";
-    document.getElementById("user-email-input").value = "";
+    // Preenche email automaticamente se o usuário estiver logado
+    var user = auth.currentUser;
+    var emailInput = document.getElementById("user-email-input");
+    if (user && user.email) {
+      emailInput.value = user.email;
+      emailInput.readOnly = true;
+      emailInput.style.opacity = "0.7";
+    } else {
+      emailInput.value = "";
+      emailInput.readOnly = false;
+      emailInput.style.opacity = "1";
+    }
   }
   function closeModal() {
     document.getElementById("modal").classList.remove("open");
