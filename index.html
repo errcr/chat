@@ -1851,12 +1851,11 @@ function snapshotToSortedArray(snap) {
     };
 
     if (newPass) {
-      // Verifica se o usuário tem plano Premium (admin sempre passa)
+      // Senha só é permitida em salas VIP (premium: true) — admin sempre passa
       var adminSnap = await db.ref("admins/" + currentUid).once("value");
       var isAdmin = adminSnap.exists() && adminSnap.val() === true;
-      var premiumSnap = await db.ref("premium_users/" + currentUid).once("value");
-      if (!isAdmin && (!premiumSnap.exists() || !premiumSnap.val().active)) {
-        alert("🔒 Salas com senha são exclusivas para usuários Premium!\n\nClique em OK para conhecer os planos.");
+      if (!isAdmin) {
+        alert("🔒 Apenas salas VIP podem ter senha!\n\nAtive sua sala como VIP para protegê-la com senha.");
         window.open("/premium.html", "_blank");
         return;
       }
@@ -1868,19 +1867,15 @@ function snapshotToSortedArray(snap) {
     return;
   }
 
-  // dono alterando/adicionando senha
+  // dono alterando/adicionando senha — só permitido em salas VIP
   if (data.ownerUid === currentUid && newPass) {
-    // Verifica se a sala já é premium ou se o usuário tem plano Premium
     var isPremiumRoom = data.premium === true;
     var adminSnap2 = await db.ref("admins/" + currentUid).once("value");
     var isAdminUser = adminSnap2.exists() && adminSnap2.val() === true;
     if (!isPremiumRoom && !isAdminUser) {
-      var premiumUserSnap = await db.ref("premium_users/" + currentUid).once("value");
-      if (!premiumUserSnap.exists() || !premiumUserSnap.val().active) {
-        alert("🔒 Salas com senha são exclusivas para usuários Premium!\n\nClique em OK para conhecer os planos.");
-        window.open("/premium.html", "_blank");
-        return;
-      }
+      alert("🔒 Apenas salas VIP podem ter senha!\n\nAtive sua sala como VIP primeiro.");
+      window.open("/premium.html", "_blank");
+      return;
     }
     await db.ref("room_settings/" + room + "/password").set(await hashPassword(newPass));
     startChat(room);
